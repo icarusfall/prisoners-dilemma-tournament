@@ -651,6 +651,28 @@ Concrete tasks in order:
 
 That's Phase 1. When it's green, we have: a working IPD engine with full DSL, presets, both tournament modes, REST API, persistence, and a UI that can run either kind of tournament. Everything else — arena, Claude compiler, MCP, zombies, code-tier bots, and the drafted explainer webpages — is additive and can each be their own phase.
 
+#### Progress as of 2026-04-11
+
+- [x] **1–8 Engine.** Types, scoring, interpreter (full DSL incl. Bayesian-lite primitives and `classifyOpponent`), match loop, round-robin and evolutionary runners, eight presets, repo skeleton. 91 unit tests across 8 files.
+- [x] **9 Backend skeleton.** Fastify on Railway, Postgres pool from `DATABASE_URL`, migration runner (`migrations/001_init.sql` is the §11 schema), preset seeder run on boot, `/health` pings the DB.
+- [x] **10 Backend `bots` routes.** Full CRUD with the JSON Schema validator (15 validator tests). Preset clone path produces a fresh `{presetId}_{random}` id; deletion blocked for preset rows.
+- [x] **11 Backend `tournaments` routes.** `POST` runs synchronously and persists `tournaments` + `tournament_entries` + (round-robin only) `matches` rows in a single transaction. `GET /:id` and `GET /:id/matches/:matchId` return the persisted state. Bounds-checked: rounds ∈ [1, 10000], count per entry ∈ [1, 50], generations ∈ [1, 1000], seed in 32-bit unsigned range.
+- [x] **12 Frontend skeleton.** Vite + TS + type-safe API client. All payload types imported directly from `@pdt/engine` — no duplicated `BotSpec` / `TournamentResult` / `RoundResult` definitions on the frontend.
+- [x] **13 Frontend tournament-running UI.** Vanilla TS, no framework. Bot picker reads `/api/bots` and orders presets first; mode toggle reveals `generations` for evolutionary; round-robin renders a leaderboard plus expandable per-match round-by-round tables; evolutionary renders the gen-1 (Axelrod-faithful) and final-population-share leaderboards side by side, lists `extinctEver`, and draws a hand-rolled stacked-area SVG of population over generations. Stable colour palette keyed off lowercased preset ids — the same hues will reappear as arena sprite tints in Phase 2.
+- [ ] **14 Explainer scaffold** — pending.
+- [ ] **15 End-to-end smoke test** — pending. Block coverage for the tournaments routes is folded into this task per the original plan.
+
+Live verification on the deployed Railway backend reproduces the textbook results: a TFT×2 / ALLD×2 / GRIM×1 round-robin (200 rounds, seed 42) ties TFT and GRIM at 1598 with both ALLDs at 812; an evolutionary run of TFT/ALLD/ALLC × 10 each (150 rounds × 50 generations, seed 7) gives gen-1 winner ALLD, dominance winner TFT (~79%), ALLD extinct.
+
+#### Notable design choices made during implementation (not in the original spec)
+
+- **Tournament `id` generation reuses the bot id helper** with a parameterised prefix (`generateBotId('tour')` → `tour_xxxxxxxx`). Same alphabet, same length; the function name is mildly misleading but keeping one helper is preferable to a duplicate.
+- **Backend rounds-per-match upper bound is 10 000**, count-per-entry upper bound is 50, generations upper bound is 1000. These exist to stop a malformed POST from spinning the Railway hobby instance for minutes; bump if a real workload needs it.
+- **Persisted `tournaments.result` is the raw engine result JSONB.** The `GET` endpoint spreads it onto the row metadata so the response shape is identical to the `POST` response (consumers can be agnostic about which call produced the object). The BIGINT seed comes back as a string from the postgres driver and is coerced to `Number` on the way out.
+- **Evolutionary `tournament_entries` rows use the gen-1 leaderboard**, not the final-generation leaderboard. Rationale: gen-1 is the Axelrod-faithful ranking that's directly comparable across runs; the dominance winner is exposed as a top-level field on the result instead.
+- **Frontend round-by-round replay is capped at the first 200 rounds per match** with a "showing first 200 of N" note. The full data is still in the result object — this is purely a DOM-weight cap for the UI.
+- **Frontend client-side validation mirrors the backend bounds** so most errors surface inline next to the run button without a network round-trip. ApiError messages flow through to the same inline element on real failures.
+
 ### 14.1 Later phases (sketch, not binding)
 
 Rough order of subsequent phases, each independently shippable:
@@ -681,4 +703,4 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 
 ---
 
-**Status**: draft, ready for user review. Once signed off, we cut Phase 1 into tickets and start on §12 task 1.
+**Status**: v0.4 design signed off; Phase 1 in progress, 13 of 15 tasks complete as of 2026-04-11. Remaining: explainer scaffold (task 14) and end-to-end smoke test (task 15).
