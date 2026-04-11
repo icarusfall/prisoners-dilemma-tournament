@@ -21,6 +21,7 @@ import { ENGINE_VERSION } from '@pdt/engine';
 import { getDb, closeDb } from './db.js';
 import { runMigrations } from './migrate.js';
 import { seedPresets } from './seed.js';
+import { botsRoutes } from './routes/bots.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = '0.0.0.0';
@@ -77,6 +78,8 @@ async function main(): Promise<void> {
       uptimeSeconds: Math.round(process.uptime()),
     };
   });
+
+  await app.register(botsRoutes, { sql });
 
   // ---- Listen ----
   try {
