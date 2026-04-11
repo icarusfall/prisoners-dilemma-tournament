@@ -22,6 +22,7 @@ import { getDb, closeDb } from './db.js';
 import { runMigrations } from './migrate.js';
 import { seedPresets } from './seed.js';
 import { botsRoutes } from './routes/bots.js';
+import { tournamentsRoutes } from './routes/tournaments.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = '0.0.0.0';
@@ -80,6 +81,7 @@ async function main(): Promise<void> {
   });
 
   await app.register(botsRoutes, { sql });
+  await app.register(tournamentsRoutes, { sql });
 
   // ---- Listen ----
   try {
