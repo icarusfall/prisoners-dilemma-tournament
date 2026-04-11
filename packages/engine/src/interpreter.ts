@@ -327,10 +327,14 @@ function classifyOpponentImpl(view: BotView): ClassifierLabel {
   let tf2tMatches = 0;
   let reactiveTotal = 0;
 
+  // Bounds: i >= 1 and i < theirs.length, plus the engine guarantees
+  // mine.length === theirs.length once any history exists. So all three
+  // indexed accesses below are defined; the non-null assertions exist
+  // only to satisfy `noUncheckedIndexedAccess`.
   for (let i = 1; i < theirs.length; i++) {
-    const myPrev = mine[i - 1];
-    const theirPrev = theirs[i - 1];
-    const theirNow = theirs[i];
+    const myPrev = mine[i - 1]!;
+    const theirPrev = theirs[i - 1]!;
+    const theirNow = theirs[i]!;
 
     // TFT: copy my previous move.
     if (theirNow === myPrev) tftMatches++;

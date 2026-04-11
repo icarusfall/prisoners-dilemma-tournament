@@ -9,3 +9,4 @@ export * from './rng.js';
 export * from './match.js';
 export * from './tournament.js';
 export * from './evolutionary.js';
+export * from './presets/index.js';
