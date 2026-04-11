@@ -8,12 +8,16 @@
     "apps/*"
   ],
   "scripts": {
+    "start": "npm start --workspace @pdt/backend",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
