@@ -651,7 +651,7 @@ Concrete tasks in order:
 
 That's Phase 1. When it's green, we have: a working IPD engine with full DSL, presets, both tournament modes, REST API, persistence, and a UI that can run either kind of tournament. Everything else — arena, Claude compiler, MCP, zombies, code-tier bots, and the drafted explainer webpages — is additive and can each be their own phase.
 
-#### Progress as of 2026-04-11
+#### Progress as of 2026-04-12 (Phase 1 complete)
 
 - [x] **1–8 Engine.** Types, scoring, interpreter (full DSL incl. Bayesian-lite primitives and `classifyOpponent`), match loop, round-robin and evolutionary runners, eight presets, repo skeleton. 91 unit tests across 8 files.
 - [x] **9 Backend skeleton.** Fastify on Railway, Postgres pool from `DATABASE_URL`, migration runner (`migrations/001_init.sql` is the §11 schema), preset seeder run on boot, `/health` pings the DB.
@@ -659,10 +659,12 @@ That's Phase 1. When it's green, we have: a working IPD engine with full DSL, pr
 - [x] **11 Backend `tournaments` routes.** `POST` runs synchronously and persists `tournaments` + `tournament_entries` + (round-robin only) `matches` rows in a single transaction. `GET /:id` and `GET /:id/matches/:matchId` return the persisted state. Bounds-checked: rounds ∈ [1, 10000], count per entry ∈ [1, 50], generations ∈ [1, 1000], seed in 32-bit unsigned range.
 - [x] **12 Frontend skeleton.** Vite + TS + type-safe API client. All payload types imported directly from `@pdt/engine` — no duplicated `BotSpec` / `TournamentResult` / `RoundResult` definitions on the frontend.
 - [x] **13 Frontend tournament-running UI.** Vanilla TS, no framework. Bot picker reads `/api/bots` and orders presets first; mode toggle reveals `generations` for evolutionary; round-robin renders a leaderboard plus expandable per-match round-by-round tables; evolutionary renders the gen-1 (Axelrod-faithful) and final-population-share leaderboards side by side, lists `extinctEver`, and draws a hand-rolled stacked-area SVG of population over generations. Stable colour palette keyed off lowercased preset ids — the same hues will reappear as arena sprite tints in Phase 2.
-- [ ] **14 Explainer scaffold** — pending.
-- [ ] **15 End-to-end smoke test** — pending. Block coverage for the tournaments routes is folded into this task per the original plan.
+- [x] **14 Explainer scaffold.** Nine stub files in `docs/explainers/` (00–08) with frontmatter (`title`, `slug`), H1, and one-line description. No body content — drafting deferred to Phase 3. Terminology and slugs locked in for URL paths and MCP resource URIs.
+- [x] **15 End-to-end smoke test.** `apps/backend/test/tournaments-e2e.test.ts` — 17 tests. Boots Fastify with an ephemeral Postgres schema (created in `beforeAll`, dropped in `afterAll`), seeds presets, runs both a round-robin and an evolutionary tournament via `app.inject()`, asserts full response shapes, verifies `GET` retrieval and per-match lookup. Validation error paths covered: missing mode, empty instances, out-of-range rounds/generations/seed, unknown bot ids, duplicates, insufficient instance counts. Skips gracefully if `DATABASE_URL` is not set.
 
 Live verification on the deployed Railway backend reproduces the textbook results: a TFT×2 / ALLD×2 / GRIM×1 round-robin (200 rounds, seed 42) ties TFT and GRIM at 1598 with both ALLDs at 812; an evolutionary run of TFT/ALLD/ALLC × 10 each (150 rounds × 50 generations, seed 7) gives gen-1 winner ALLD, dominance winner TFT (~79%), ALLD extinct.
+
+**Phase 1 complete as of 2026-04-12.** Total test count: 123 across 10 files (8 engine, 1 backend validator, 1 backend e2e). All green.
 
 #### Notable design choices made during implementation (not in the original spec)
 
@@ -703,4 +705,4 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 
 ---
 
-**Status**: v0.4 design signed off; Phase 1 in progress, 13 of 15 tasks complete as of 2026-04-11. Remaining: explainer scaffold (task 14) and end-to-end smoke test (task 15).
+**Status**: v0.5 design signed off; **Phase 1 complete** — 15 of 15 tasks done as of 2026-04-12. Test count: 123 across 10 files (8 engine, 1 backend validator, 1 backend e2e). Ready for Phase 2 (arena).
