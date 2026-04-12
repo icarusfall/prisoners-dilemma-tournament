@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Jogger: head, dynamic running pose -->
+  <circle cx="32" cy="12" r="7" fill="white"/>
+  <path d="M28 20 L36 20 L38 34 L44 48 L38 48 L32 38 L26 48 L20 48 L26 34 Z" fill="white"/>
+  <line x1="28" y1="24" x2="18" y2="30" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <line x1="36" y1="24" x2="46" y2="28" stroke="white" stroke-width="3" stroke-linecap="round"/>
+</svg>

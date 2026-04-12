@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Builder: hard hat, broad shoulders, tool -->
+  <circle cx="32" cy="16" r="8" fill="white"/>
+  <path d="M22 10 L42 10 L42 13 Q32 15 22 13 Z" fill="white"/>
+  <path d="M20 26 C20 23 44 23 44 26 L45 48 L35 48 L35 42 L29 42 L29 48 L19 48 Z" fill="white"/>
+  <rect x="44" y="32" width="3" height="14" rx="1" fill="white" opacity="0.8"/>
+</svg>

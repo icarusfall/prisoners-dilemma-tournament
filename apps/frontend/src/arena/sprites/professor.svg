@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Professor: head with glasses, book -->
+  <circle cx="32" cy="14" r="8" fill="white"/>
+  <circle cx="28" cy="13" r="3" stroke="white" fill="none" stroke-width="1.5"/>
+  <circle cx="36" cy="13" r="3" stroke="white" fill="none" stroke-width="1.5"/>
+  <line x1="31" y1="13" x2="33" y2="13" stroke="white" stroke-width="1.5"/>
+  <path d="M23 24 C23 22 41 22 41 24 L42 48 L34 48 L34 42 L30 42 L30 48 L22 48 Z" fill="white"/>
+  <rect x="14" y="30" width="8" height="10" rx="1" fill="white" opacity="0.8"/>
+</svg>

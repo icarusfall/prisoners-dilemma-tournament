@@ -14,6 +14,8 @@ interface ImportMetaEnv {
    * Override with a `.env.local` to point at a local backend.
    */
   readonly VITE_BACKEND_URL?: string;
+  /** Mapbox GL JS access token. Required for the arena map. */
+  readonly VITE_MAPBOX_TOKEN?: string;
 }
 
 interface ImportMeta {

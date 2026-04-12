@@ -1,0 +1,329 @@
+// Arena simulation — pure logic, no Mapbox dependency.
+//
+// Owns movement, collision detection, single-round play via the
+// engine, and per-pair match history threading. The renderer reads
+// the state produced here; this module never touches the DOM.
+
+import type { BotSpec, BotView, DecisionFn, Move } from '@pdt/engine';
+import { compile, scoreRound, mulberry32, deriveInstanceSeed } from '@pdt/engine';
+import {
+  COLLISION_RADIUS,
+  COOLDOWN_MS,
+  DEFAULT_SPEED,
+  FLASH_DURATION_MS,
+  WANDER_INTERVAL_MS,
+  pairKey,
+  type ArenaBot,
+  type ArenaConfig,
+  type ArenaEvent,
+  type PairState,
+  DEFAULT_CONFIG,
+} from './types.js';
+import { SPRITE_NAMES } from './sprites/index.js';
+
+// ---------------------------------------------------------------------
+// Bot creation
+// ---------------------------------------------------------------------
+
+let instanceCounter = 0;
+
+export function createArenaBot(
+  botId: string,
+  name: string,
+  spec: BotSpec,
+  bounds: [number, number, number, number],
+  rng: () => number,
+): ArenaBot {
+  const [west, south, east, north] = bounds;
+  const lng = west + rng() * (east - west);
+  const lat = south + rng() * (north - south);
+  const angle = rng() * Math.PI * 2;
+  const speed = DEFAULT_SPEED;
+
+  return {
+    instanceId: `${botId}#${instanceCounter++}`,
+    botId,
+    name,
+    spec,
+    decide: compile(spec),
+    lng,
+    lat,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    spriteVariant: Math.floor(rng() * SPRITE_NAMES.length),
+    score: 0,
+    visualState: 'idle',
+    flashUntil: 0,
+    isZombie: false,
+    wanderTarget: { lng, lat },
+    lastWanderChange: 0,
+  };
+}
+
+/** Reset the instance counter (useful between arena runs). */
+export function resetInstanceCounter(): void {
+  instanceCounter = 0;
+}
+
+// ---------------------------------------------------------------------
+// Movement
+// ---------------------------------------------------------------------
+
+// Approximate degrees-per-metre at London's latitude (~51.5 N).
+const DEG_PER_METRE_LNG = 1 / 71_700;
+const DEG_PER_METRE_LAT = 1 / 111_320;
+
+export function moveBot(
+  bot: ArenaBot,
+  dt: number,
+  bounds: [number, number, number, number],
+  now: number,
+  rng: () => number,
+  config: ArenaConfig = DEFAULT_CONFIG,
+): void {
+  // Lazy velocity retargeting — pick a new wander target periodically.
+  if (now - bot.lastWanderChange > config.wanderIntervalMs) {
+    const [west, south, east, north] = bounds;
+    bot.wanderTarget = {
+      lng: west + rng() * (east - west),
+      lat: south + rng() * (north - south),
+    };
+    bot.lastWanderChange = now;
+  }
+
+  // Steer toward wander target.
+  const dLng = bot.wanderTarget.lng - bot.lng;
+  const dLat = bot.wanderTarget.lat - bot.lat;
+  const dist = Math.sqrt(dLng * dLng + dLat * dLat);
+  if (dist > 0.000001) {
+    const speed = config.speed;
+    bot.vx = (dLng / dist) * speed * DEG_PER_METRE_LNG;
+    bot.vy = (dLat / dist) * speed * DEG_PER_METRE_LAT;
+  }
+
+  bot.lng += bot.vx * dt;
+  bot.lat += bot.vy * dt;
+
+  // Clamp to bounds.
+  const [west, south, east, north] = bounds;
+  if (bot.lng < west) { bot.lng = west; bot.vx = Math.abs(bot.vx); }
+  if (bot.lng > east) { bot.lng = east; bot.vx = -Math.abs(bot.vx); }
+  if (bot.lat < south) { bot.lat = south; bot.vy = Math.abs(bot.vy); }
+  if (bot.lat > north) { bot.lat = north; bot.vy = -Math.abs(bot.vy); }
+}
+
+// ---------------------------------------------------------------------
+// Collision detection
+// ---------------------------------------------------------------------
+
+function distanceMetres(a: ArenaBot, b: ArenaBot): number {
+  const dLng = (a.lng - b.lng) / DEG_PER_METRE_LNG;
+  const dLat = (a.lat - b.lat) / DEG_PER_METRE_LAT;
+  return Math.sqrt(dLng * dLng + dLat * dLat);
+}
+
+export function findCollisions(
+  bots: ArenaBot[],
+  pairs: Map<string, PairState>,
+  now: number,
+  config: ArenaConfig = DEFAULT_CONFIG,
+): [ArenaBot, ArenaBot][] {
+  const collisions: [ArenaBot, ArenaBot][] = [];
+  for (let i = 0; i < bots.length; i++) {
+    for (let j = i + 1; j < bots.length; j++) {
+      const a = bots[i]!;
+      const b = bots[j]!;
+      if (a.isZombie || b.isZombie) continue;
+
+      if (distanceMetres(a, b) > config.collisionRadius) continue;
+
+      const key = pairKey(a.instanceId, b.instanceId);
+      const pair = pairs.get(key);
+      if (pair && now - pair.lastInteraction < config.cooldownMs) continue;
+
+      collisions.push([a, b]);
+    }
+  }
+  return collisions;
+}
+
+// ---------------------------------------------------------------------
+// Single-round play
+// ---------------------------------------------------------------------
+
+/**
+ * Play one IPD round between two arena bots. Threads the persistent
+ * per-pair history so bots "remember" earlier encounters with the same
+ * opponent across collisions.
+ */
+export function playArenaRound(
+  a: ArenaBot,
+  b: ArenaBot,
+  pairs: Map<string, PairState>,
+  now: number,
+): { moveA: Move; moveB: Move; scoreA: number; scoreB: number; isFirstMeeting: boolean } {
+  const key = pairKey(a.instanceId, b.instanceId);
+  const isFirstA = a.instanceId < b.instanceId;
+
+  let pair = pairs.get(key);
+  const isFirstMeeting = !pair;
+  if (!pair) {
+    // Derive a stable per-pair seed from the two instance ids.
+    let h = 0;
+    for (const ch of key) h = (Math.imul(31, h) + ch.charCodeAt(0)) | 0;
+    pair = { movesA: [], movesB: [], lastInteraction: 0, seed: h >>> 0 };
+    pairs.set(key, pair);
+  }
+
+  // The "A" side in PairState is always the lexically smaller instanceId.
+  const myMovesForA = isFirstA ? pair.movesA : pair.movesB;
+  const theirMovesForA = isFirstA ? pair.movesB : pair.movesA;
+  const myMovesForB = isFirstA ? pair.movesB : pair.movesA;
+  const theirMovesForB = isFirstA ? pair.movesA : pair.movesB;
+
+  const round = myMovesForA.length;
+  const rngA = mulberry32(deriveInstanceSeed(pair.seed, round * 2));
+  const rngB = mulberry32(deriveInstanceSeed(pair.seed, round * 2 + 1));
+
+  const viewA: BotView = {
+    selfInstanceId: a.instanceId,
+    opponentInstanceId: b.instanceId,
+    round,
+    history: { myMoves: myMovesForA, theirMoves: theirMovesForA },
+    rng: rngA,
+  };
+  const viewB: BotView = {
+    selfInstanceId: b.instanceId,
+    opponentInstanceId: a.instanceId,
+    round,
+    history: { myMoves: myMovesForB, theirMoves: theirMovesForB },
+    rng: rngB,
+  };
+
+  const moveA = a.decide(viewA);
+  const moveB = b.decide(viewB);
+  const result = scoreRound(moveA, moveB);
+
+  // Append to history (from the canonical A/B perspective).
+  if (isFirstA) {
+    pair.movesA.push(moveA);
+    pair.movesB.push(moveB);
+  } else {
+    pair.movesA.push(moveB);
+    pair.movesB.push(moveA);
+  }
+
+  pair.lastInteraction = now;
+
+  return { moveA, moveB, scoreA: result.scoreA, scoreB: result.scoreB, isFirstMeeting };
+}
+
+// ---------------------------------------------------------------------
+// Tick
+// ---------------------------------------------------------------------
+
+export interface TickResult {
+  events: ArenaEvent[];
+}
+
+export function tick(
+  bots: ArenaBot[],
+  pairs: Map<string, PairState>,
+  dt: number,
+  now: number,
+  bounds: [number, number, number, number],
+  rng: () => number,
+  config: ArenaConfig = DEFAULT_CONFIG,
+): TickResult {
+  const events: ArenaEvent[] = [];
+
+  // Expire flashes.
+  for (const bot of bots) {
+    if (bot.flashUntil > 0 && now >= bot.flashUntil) {
+      bot.visualState = 'idle';
+      bot.flashUntil = 0;
+    }
+  }
+
+  // Move all bots.
+  for (const bot of bots) {
+    if (!bot.isZombie) {
+      moveBot(bot, dt, bounds, now, rng, config);
+    }
+  }
+
+  // Track leader for leader_change events.
+  let currentLeader = '';
+  let currentLeaderScore = -1;
+  for (const bot of bots) {
+    if (bot.score > currentLeaderScore) {
+      currentLeaderScore = bot.score;
+      currentLeader = bot.instanceId;
+    }
+  }
+
+  // Detect collisions and play rounds.
+  const collisions = findCollisions(bots, pairs, now, config);
+  for (const [a, b] of collisions) {
+    const result = playArenaRound(a, b, pairs, now);
+
+    a.score += result.scoreA;
+    b.score += result.scoreB;
+
+    // Visual flash.
+    a.visualState = result.moveA === 'C' ? 'cooperate' : 'defect';
+    b.visualState = result.moveB === 'C' ? 'cooperate' : 'defect';
+    a.flashUntil = now + config.flashDurationMs;
+    b.flashUntil = now + config.flashDurationMs;
+
+    // Events.
+    events.push({
+      type: 'interaction',
+      aId: a.instanceId,
+      bId: b.instanceId,
+      moveA: result.moveA,
+      moveB: result.moveB,
+      scoreA: result.scoreA,
+      scoreB: result.scoreB,
+    });
+
+    if (result.isFirstMeeting) {
+      events.push({ type: 'first_meeting', aId: a.instanceId, bId: b.instanceId });
+    }
+
+    // Check for first defection by each bot.
+    if (result.moveA === 'D') {
+      const key = pairKey(a.instanceId, b.instanceId);
+      const pair = pairs.get(key)!;
+      const isFirstA = a.instanceId < b.instanceId;
+      const myMoves = isFirstA ? pair.movesA : pair.movesB;
+      if (myMoves.filter((m) => m === 'D').length === 1) {
+        events.push({ type: 'first_defection', botId: a.instanceId, againstId: b.instanceId });
+      }
+    }
+    if (result.moveB === 'D') {
+      const key = pairKey(a.instanceId, b.instanceId);
+      const pair = pairs.get(key)!;
+      const isFirstA = a.instanceId < b.instanceId;
+      const myMoves = isFirstA ? pair.movesB : pair.movesA;
+      if (myMoves.filter((m) => m === 'D').length === 1) {
+        events.push({ type: 'first_defection', botId: b.instanceId, againstId: a.instanceId });
+      }
+    }
+  }
+
+  // Check for leader change.
+  let newLeader = '';
+  let newLeaderScore = -1;
+  for (const bot of bots) {
+    if (bot.score > newLeaderScore) {
+      newLeaderScore = bot.score;
+      newLeader = bot.instanceId;
+    }
+  }
+  if (newLeader !== currentLeader && newLeaderScore > 0) {
+    events.push({ type: 'leader_change', newLeader, score: newLeaderScore });
+  }
+
+  return { events };
+}

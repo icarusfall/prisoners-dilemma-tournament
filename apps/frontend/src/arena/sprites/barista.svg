@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Barista: head, apron, coffee cup -->
+  <circle cx="32" cy="14" r="8" fill="white"/>
+  <path d="M23 24 C23 22 41 22 41 24 L42 48 L22 48 Z" fill="white"/>
+  <path d="M25 30 L39 30 L39 44 L25 44 Z" fill="white" opacity="0.6"/>
+  <rect x="42" y="28" width="6" height="8" rx="1" fill="white"/>
+  <path d="M48 30 Q52 34 48 36" stroke="white" fill="none" stroke-width="2"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Office worker: head, tie, briefcase silhouette -->
+  <circle cx="32" cy="14" r="8" fill="white"/>
+  <path d="M22 24 C22 22 42 22 42 24 L44 48 L36 48 L36 42 L34 42 L34 48 L30 48 L30 42 L28 42 L28 48 L20 48 Z" fill="white"/>
+  <rect x="32" y="24" width="2" height="16" fill="white" opacity="0.6"/>
+  <rect x="42" y="38" width="8" height="6" rx="1" fill="white"/>
+  <rect x="44" y="36" width="4" height="2" rx="1" fill="white"/>
+</svg>

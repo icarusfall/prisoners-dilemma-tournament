@@ -39,47 +39,7 @@ import {
   type CreateTournamentRequest,
   type TournamentRecord,
 } from '../api.js';
-
-// ---------------------------------------------------------------------
-// Colour palette
-// ---------------------------------------------------------------------
-//
-// Stable colours per preset, keyed by the *persisted* lowercased bot
-// id (e.g. 'tft', 'generous_tft'). These will eventually be reused as
-// the arena sprite tints in Phase 2 so the leaderboard and the live
-// arena teach the same visual language.
-
-const PRESET_COLOURS: Record<string, string> = {
-  tft: '#2f7dd1',
-  tf2t: '#5fb6e0',
-  alld: '#e04646',
-  allc: '#62c46b',
-  grim: '#7a1f1f',
-  pavlov: '#d18a2f',
-  generous_tft: '#3fae9b',
-  random: '#9b9b9b',
-};
-
-// Fallback palette for non-preset bots (NL-compiled, MCP-submitted,
-// etc., once Phase 4+ lands). Cycled in stable order so the same bot
-// gets the same colour across renders within a single result.
-const FALLBACK_COLOURS = [
-  '#9966cc',
-  '#d96fa3',
-  '#7c8b00',
-  '#4a90e2',
-  '#bd5757',
-  '#3f6f4f',
-  '#a8763a',
-  '#566677',
-];
-
-function colourFor(botId: string, fallbackIndex: number): string {
-  return (
-    PRESET_COLOURS[botId] ??
-    FALLBACK_COLOURS[fallbackIndex % FALLBACK_COLOURS.length]!
-  );
-}
+import { colourFor } from '../palette.js';
 
 // ---------------------------------------------------------------------
 // Public entrypoint

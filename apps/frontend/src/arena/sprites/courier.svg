@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Courier: head with cap, backpack silhouette -->
+  <circle cx="32" cy="14" r="8" fill="white"/>
+  <rect x="24" y="8" width="16" height="4" rx="2" fill="white"/>
+  <path d="M24 24 C24 22 40 22 40 24 L42 48 L34 48 L34 42 L30 42 L30 48 L22 48 Z" fill="white"/>
+  <rect x="38" y="24" width="8" height="18" rx="2" fill="white" opacity="0.8"/>
+</svg>
