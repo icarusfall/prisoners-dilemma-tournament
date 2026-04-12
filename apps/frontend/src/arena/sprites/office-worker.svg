@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Office worker: head, tie, briefcase silhouette -->
-  <circle cx="32" cy="14" r="8" fill="white"/>
-  <path d="M22 24 C22 22 42 22 42 24 L44 48 L36 48 L36 42 L34 42 L34 48 L30 48 L30 42 L28 42 L28 48 L20 48 Z" fill="white"/>
-  <rect x="32" y="24" width="2" height="16" fill="white" opacity="0.6"/>
-  <rect x="42" y="38" width="8" height="6" rx="1" fill="white"/>
-  <rect x="44" y="36" width="4" height="2" rx="1" fill="white"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Head" transform="matrix(1,0,0,1,-9.016056,-10.510949)">
+        <path d="M48.467,35.177L57.086,35.177L60.917,70.12L21.115,70.12L25.133,35.177L33.565,35.177C31.702,33.338 30.552,30.813 30.552,28.029C30.552,22.409 35.241,17.845 41.016,17.845C46.791,17.845 51.48,22.409 51.48,28.029C51.48,30.813 50.33,33.338 48.467,35.177ZM41.607,40.224L43.484,36.106L39.7,36.12L41.607,40.224ZM40.338,40.689L35.55,62.832L47.509,62.832L42.722,40.689L40.338,40.689Z" style="fill:white;"/>
+    </g>
 </svg>

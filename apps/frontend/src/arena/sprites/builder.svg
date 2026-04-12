@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Builder: hard hat, broad shoulders, tool -->
-  <circle cx="32" cy="16" r="8" fill="white"/>
-  <path d="M22 10 L42 10 L42 13 Q32 15 22 13 Z" fill="white"/>
-  <path d="M20 26 C20 23 44 23 44 26 L45 48 L35 48 L35 42 L29 42 L29 48 L19 48 Z" fill="white"/>
-  <rect x="44" y="32" width="3" height="14" rx="1" fill="white" opacity="0.8"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1.244186,-2.756205,-4.144628)">
+        <ellipse cx="34.756" cy="10.277" rx="5.326" ry="4.018" style="fill:white;"/>
+    </g>
+    <g transform="matrix(1.218855,0,0,1.125733,-8.028264,-4.489736)">
+        <path d="M18.966,41.577L18.966,30.272L25.507,30.272L25.507,41.577L18.966,41.577ZM28.59,41.577L28.59,16.257L37.326,16.257L37.326,41.577L28.59,41.577ZM40.362,41.577L40.362,30.365L46.715,30.365L46.715,41.577L40.362,41.577ZM46.715,46.061L46.715,47.066C46.715,50.698 43.918,53.682 40.362,53.979L40.362,46.061L46.715,46.061ZM37.326,46.061L37.326,54.003L28.59,54.003L28.59,46.061L37.326,46.061ZM25.507,46.061L25.507,53.992C21.862,53.786 18.966,50.761 18.966,47.066L18.966,46.061L25.507,46.061ZM40.362,25.88L40.362,16.281C43.918,16.578 46.715,19.562 46.715,23.194L46.715,25.88L40.362,25.88ZM18.966,26.067L18.966,23.194C19.341,18.376 22.235,15.355 25.507,16.268L25.507,26.067L18.966,26.067Z" style="fill:white;"/>
+    </g>
 </svg>

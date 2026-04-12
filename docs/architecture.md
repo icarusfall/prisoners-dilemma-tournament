@@ -1,6 +1,6 @@
 # Prisoner's Dilemma Tournament — Architecture
 
-Draft v0.5 · 2026-04-11
+Draft v0.6 · 2026-04-12
 
 ## 1. Vision
 
@@ -675,6 +675,31 @@ Live verification on the deployed Railway backend reproduces the textbook result
 - **Frontend round-by-round replay is capped at the first 200 rounds per match** with a "showing first 200 of N" note. The full data is still in the result object — this is purely a DOM-weight cap for the UI.
 - **Frontend client-side validation mirrors the backend bounds** so most errors surface inline next to the run button without a network round-trip. ApiError messages flow through to the same inline element on real failures.
 
+#### Progress as of 2026-04-12 (Phase 2 in progress)
+
+- [x] **1 Mapbox GL JS setup.** Installed mapbox-gl + types, configured `VITE_MAPBOX_TOKEN` env var. Dark-v11 style map centred on 1 Coleman Street, zoom 17.5, bearing -15.
+- [x] **2 Shared colour palette.** Extracted `PRESET_COLOURS`, `FALLBACK_COLOURS`, and `colourFor()` to `src/palette.ts`, shared by tournament-runner and arena renderer.
+- [x] **3 Arena type definitions.** `src/arena/types.ts` — `ArenaBot`, `PairState`, `ArenaEvent`, `ArenaConfig`, constants for collision radius, cooldown, flash duration, tick intervals.
+- [x] **4 SVG bot sprites.** 14 hand-drawn SVG silhouettes (white on transparent, 64×64 viewBox, SDF-compatible for Mapbox `icon-color` tinting): office-worker, courier, barista, professor, builder, jogger, tourist, security-guard, camel, ceo, djgroove, dog-walker, maya-head, scotsman. Loaded as `?raw` imports → data URI → `map.addImage(sdf:true)`.
+- [x] **5 Arena simulation core.** `src/arena/simulation.ts` — pure logic (zero Mapbox dependency). Movement with lazy wander retargeting, approximate metres-to-degrees conversion at London's latitude, O(n²) collision detection with cooldown, single-round play via engine's `compile()` + `scoreRound()`, per-pair match history threading, arena event emission. Narration hooks call into `narrate.ts` to trace DSL rules.
+- [x] **6 Coleman Street map config.** `src/arena/offices/coleman-street.ts` — centre, zoom, bearing, pitch, bounds.
+- [x] **7 Mapbox renderer.** `src/arena/renderer.ts` — bot symbol layer with SDF tinting, score halos (circle layer interpolating radius 4→30 by score), interaction lines (line layer, green/red/yellow by outcome), sprite loading, click handling on sprites, hover handling on interaction lines, narration tooltip overlay.
+- [x] **8 Arena runner.** `src/arena/arena-runner.ts` — fetches preset bots from `/api/bots`, compiles client-side, creates `ArenaBot` instances with random positions within bounds, `requestAnimationFrame` game loop, auto-demo with TFT/GRIM/RANDOM/ALLD, caption bar + scoreboard overlays.
+- [x] **9 View routing.** `src/main.ts` — arena as full-viewport landing page, nav bar with Arena/Tournament tabs, Tournament tab mounts existing tournament-runner in a scrollable container.
+- [x] **10 Bot info side panel.** `src/arena/side-panel.ts` — click a sprite to slide in a panel from the right showing bot name, colour swatch, sprite type, score, rank, strategy summary (opening move, DSL rules in plain English, default action), per-opponent match history with cooperation rates and colour-coded round-by-round grid. Click again or × to close. Refreshes every 500ms while open.
+- [x] **11 Interaction tooltip narration.** `src/arena/narrate.ts` — traces DSL rules in the same order as the engine interpreter to explain *why* each bot made its decision (e.g. "Tit for Tat cooperated because opponent cooperated last turn"). Narrations generated at decision time, stored with interaction events, shown as tooltip on hover over interaction lines.
+- [ ] **12 Persistent caption narrator.** *Next up.*
+- [ ] **13 "What am I looking at?" button.**
+- [ ] **14 Arena setup panel** (bot selection + speed slider for custom runs).
+- [ ] **15 Polish pass.**
+
+#### Notable design choices made during Phase 2
+
+- **Sprite assignment is random at spawn** — `spriteVariant = Math.floor(rng() * SPRITE_NAMES.length)`. Purely cosmetic; the engine doesn't know about sprites.
+- **Narration is generated before history is modified** so the `BotView` faithfully represents the state at decision time. The `narrate.ts` module re-evaluates conditions (mirroring the engine interpreter) rather than modifying the engine itself — keeps the engine pure and avoids coupling.
+- **Side panel refreshes on a 500ms interval** (not every frame) to avoid DOM thrashing. The game loop continues at full frame rate.
+- **Interaction lines are ephemeral** (600ms default). The tooltip shows while hovering a live line; narration data is stored per-line and cleaned up on expiry.
+
 ### 14.1 Later phases (sketch, not binding)
 
 Rough order of subsequent phases, each independently shippable:
@@ -702,7 +727,9 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 - **C3 live-decision API surface** — deferred to its own phase. Requires slow-tick arena mode, decision timeouts, and a fallback default `BotSpec` per live bot.
 - **Zombie origin** — does a zombie spawn from a bot that voluntarily "went zombie", or appear ex nihilo? Cosmetic but affects the UX. Leaning: manual add-button in the arena UI, zombie appears at a random free location.
 - **Author-defined classifiers** — the built-in `classifyOpponent()` is frozen to presets (§4.3). A future nice-to-have: let authors *build their own* classifiers as standalone `BotSpec`-fragments and call them by name from another bot. Not v1 — just flagged so we remember the idea.
+- **Arena map aesthetics** — the dark-v11 Mapbox style is functional but could be more colourful/inviting. Options: custom Mapbox Studio style with highlighted buildings, coloured zones, or overlays (e.g. department labels, meeting-room zones). Would make the arena feel more like a real office rather than a dark void.
+- **Arena obstacles / pathfinding** — currently bots wander freely within bounds. Adding obstacles (building walls, furniture, corridors) would make movement more interesting and create natural chokepoints where bots collide more often. Could use the Mapbox building footprints as collision geometry, or define hand-placed walkable zones. Would also make the map feel more alive. Trade-off: more complex movement code (simple steering vs proper pathfinding).
 
 ---
 
-**Status**: v0.5 design signed off; **Phase 1 complete** — 15 of 15 tasks done as of 2026-04-12. Test count: 123 across 10 files (8 engine, 1 backend validator, 1 backend e2e). Ready for Phase 2 (arena).
+**Status**: v0.6 design signed off; **Phase 1 complete**, **Phase 2 in progress** — 11 of 15 arena tasks done as of 2026-04-12. Test count: 123 across 10 files (unchanged — arena is client-side rendering, no new test files yet). Next up: persistent caption narrator (task 12).

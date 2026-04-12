@@ -43,6 +43,16 @@ export interface ArenaRenderer {
   removeInteractionLine(pairId: string): void;
   /** Remove all interaction lines. */
   clearInteractionLines(): void;
+  /** Register a callback for when a bot sprite is clicked. */
+  onBotClick(cb: (instanceId: string) => void): void;
+  /** Register a callback for when an interaction line is hovered. */
+  onLineHover(cb: (pairId: string, lngLat: [number, number]) => void): void;
+  /** Register a callback for when the cursor leaves an interaction line. */
+  onLineLeave(cb: () => void): void;
+  /** Show a narration tooltip near a point on the map. */
+  showTooltip(lngLat: [number, number], text: string): void;
+  /** Hide the narration tooltip. */
+  hideTooltip(): void;
   /** Destroy the renderer and the map. */
   destroy(): void;
 }
@@ -90,7 +100,10 @@ export async function createRenderer(
   // Add compact attribution.
   map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
 
-  await new Promise<void>((resolve) => map.on('load', () => resolve()));
+  await new Promise<void>((resolve) => {
+    if (map.loaded()) resolve();
+    else map.on('load', () => resolve());
+  });
 
   // Load sprite images into Mapbox.
   for (const name of SPRITE_NAMES) {
@@ -153,9 +166,70 @@ export async function createRenderer(
     source: 'arena-lines',
     paint: {
       'line-color': ['get', 'colour'],
-      'line-width': 2,
+      'line-width': 4,
       'line-opacity': 0.7,
     },
+  });
+
+  // ---- Click handling ----
+  let botClickCb: ((instanceId: string) => void) | null = null;
+
+  map.on('click', 'arena-sprites', (e) => {
+    if (!botClickCb || !e.features?.length) return;
+    const id = e.features[0]!.properties?.id;
+    if (typeof id === 'string') botClickCb(id);
+  });
+
+  // Show pointer cursor over sprites.
+  map.on('mouseenter', 'arena-sprites', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'arena-sprites', () => { map.getCanvas().style.cursor = ''; });
+
+  // ---- Tooltip ----
+  const tooltip = document.createElement('div');
+  tooltip.style.cssText =
+    'position:absolute;pointer-events:none;background:rgba(10,10,20,0.92);' +
+    'color:#ddd;font:12px/1.5 system-ui,sans-serif;padding:8px 12px;' +
+    'border-radius:6px;max-width:320px;z-index:20;display:none;' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.4);';
+  container.style.position = 'relative';
+  container.appendChild(tooltip);
+
+  function showTooltip(lngLat: [number, number], text: string): void {
+    const point = map.project(lngLat);
+    tooltip.textContent = text;
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${point.x + 12}px`;
+    tooltip.style.top = `${point.y - 12}px`;
+  }
+
+  function hideTooltip(): void {
+    tooltip.style.display = 'none';
+  }
+
+  // ---- Interaction line hover ----
+  let lineHoverCb: ((pairId: string, lngLat: [number, number]) => void) | null = null;
+  let lineLeaveCb: (() => void) | null = null;
+
+  map.on('mouseenter', 'arena-interaction-lines', (e) => {
+    map.getCanvas().style.cursor = 'pointer';
+    if (lineHoverCb && e.features?.length) {
+      const pairId = e.features[0]!.properties?.pairId;
+      if (typeof pairId === 'string') {
+        lineHoverCb(pairId, [e.lngLat.lng, e.lngLat.lat]);
+      }
+    }
+  });
+  map.on('mousemove', 'arena-interaction-lines', (e) => {
+    if (lineHoverCb && e.features?.length) {
+      const pairId = e.features[0]!.properties?.pairId;
+      if (typeof pairId === 'string') {
+        lineHoverCb(pairId, [e.lngLat.lng, e.lngLat.lat]);
+      }
+    }
+  });
+  map.on('mouseleave', 'arena-interaction-lines', () => {
+    map.getCanvas().style.cursor = '';
+    if (lineLeaveCb) lineLeaveCb();
   });
 
   // Track active interaction lines by pairId.
@@ -226,12 +300,29 @@ export async function createRenderer(
     map.remove();
   }
 
+  function onBotClick(cb: (instanceId: string) => void): void {
+    botClickCb = cb;
+  }
+
+  function onLineHover(cb: (pairId: string, lngLat: [number, number]) => void): void {
+    lineHoverCb = cb;
+  }
+
+  function onLineLeave(cb: () => void): void {
+    lineLeaveCb = cb;
+  }
+
   return {
     map,
     updateBots,
     showInteractionLine,
     removeInteractionLine,
     clearInteractionLines,
+    onBotClick,
+    onLineHover,
+    onLineLeave,
+    showTooltip,
+    hideTooltip,
     destroy,
   };
 }

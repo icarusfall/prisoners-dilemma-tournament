@@ -30,14 +30,17 @@ import {
   type PairState,
 } from './types.js';
 import { mulberry32 } from '@pdt/engine';
+import { createSidePanel, type SidePanel } from './side-panel.js';
+import { createNarrator, type Narrator } from './narrator.js';
 
-// Default demo roster: the four most recognisable classical presets.
-const DEMO_BOT_IDS = ['tft', 'alld', 'grim', 'random'];
+// Default demo roster: all eight classical presets.
+const DEMO_BOT_IDS = ['tft', 'alld', 'grim', 'random', 'allc', 'tf2t', 'pavlov', 'generous_tft'];
 
 // Track active interaction lines for timed removal.
 interface ActiveLine {
   pairId: string;
   expiresAt: number;
+  narration: string;
 }
 
 export interface ArenaHandle {
@@ -73,6 +76,9 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   wrapper.appendChild(scoreboard);
 
   root.appendChild(wrapper);
+
+  // ---- Side panel (created early, populated after bots exist) ----
+  let sidePanel: SidePanel | null = null;
 
   // ---- Fetch bots ----
   let allBots: BotRecord[];
@@ -111,14 +117,40 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     return { destroy() { root.innerHTML = ''; } };
   }
 
-  // ---- Caption state ----
+  // ---- Side panel ----
+  sidePanel = createSidePanel(
+    () => arenaBots,
+    () => pairs,
+  );
+  wrapper.appendChild(sidePanel.el);
+
+  renderer.onBotClick((instanceId) => {
+    if (sidePanel!.selectedId() === instanceId) {
+      sidePanel!.close();
+    } else {
+      sidePanel!.open(instanceId);
+    }
+  });
+
+  renderer.onLineHover((pid, lngLat) => {
+    const line = activeLines.find((l) => l.pairId === pid);
+    if (line) renderer.showTooltip(lngLat, line.narration);
+  });
+
+  renderer.onLineLeave(() => {
+    renderer.hideTooltip();
+  });
+
+  // ---- Narrator ----
+  const narrator: Narrator = createNarrator(
+    () => arenaBots,
+    () => pairs,
+  );
+
+  // Caption display state.
   const captionLines: { text: string; expiresAt: number }[] = [];
   const CAPTION_DURATION_MS = 5000;
   const MAX_CAPTIONS = 3;
-
-  function botName(instanceId: string): string {
-    return arenaBots.find((b) => b.instanceId === instanceId)?.name ?? instanceId;
-  }
 
   function pushCaption(text: string, now: number): void {
     captionLines.push({ text, expiresAt: now + CAPTION_DURATION_MS });
@@ -126,7 +158,6 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   function renderCaptions(now: number): void {
-    // Expire old captions.
     while (captionLines.length > 0 && captionLines[0]!.expiresAt < now) {
       captionLines.shift();
     }
@@ -143,51 +174,31 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   function processEvents(events: ArenaEvent[], now: number): void {
+    // Show interaction lines for all interactions.
     for (const ev of events) {
-      switch (ev.type) {
-        case 'interaction': {
-          const aName = botName(ev.aId);
-          const bName = botName(ev.bId);
-          const moveLabel = (m: string) => (m === 'C' ? 'cooperated' : 'defected');
-          pushCaption(
-            `${aName} ${moveLabel(ev.moveA)}, ${bName} ${moveLabel(ev.moveB)}`,
-            now,
-          );
-
-          // Show interaction line.
-          const a = arenaBots.find((b) => b.instanceId === ev.aId);
-          const b = arenaBots.find((bot) => bot.instanceId === ev.bId);
-          if (a && b) {
-            const pid = pairKey(a.instanceId, b.instanceId);
-            renderer.showInteractionLine(a, b, pid);
-            activeLines.push({ pairId: pid, expiresAt: now + LINE_DURATION_MS });
-          }
-          break;
+      if (ev.type === 'interaction') {
+        const a = arenaBots.find((b) => b.instanceId === ev.aId);
+        const b = arenaBots.find((bot) => bot.instanceId === ev.bId);
+        if (a && b) {
+          const pid = pairKey(a.instanceId, b.instanceId);
+          renderer.showInteractionLine(a, b, pid);
+          const narration = `${ev.narrationA}\n${ev.narrationB}`;
+          activeLines.push({ pairId: pid, expiresAt: now + LINE_DURATION_MS, narration });
         }
-        case 'first_defection':
-          pushCaption(
-            `${botName(ev.botId)} defected for the first time against ${botName(ev.againstId)}!`,
-            now,
-          );
-          break;
-        case 'leader_change':
-          pushCaption(
-            `${botName(ev.newLeader)} takes the lead with ${ev.score} points!`,
-            now,
-          );
-          break;
-        case 'first_meeting':
-          pushCaption(
-            `${botName(ev.aId)} meets ${botName(ev.bId)} for the first time.`,
-            now,
-          );
-          break;
       }
+    }
+
+    // Let the narrator decide which events deserve captions.
+    const captions = narrator.process(events, now);
+    for (const caption of captions) {
+      pushCaption(caption.text, now);
     }
   }
 
   // ---- Game loop ----
   let lastTime = performance.now();
+  let lastPanelRefresh = 0;
+  const PANEL_REFRESH_INTERVAL = 500; // ms
   let animFrameId = 0;
   let destroyed = false;
 
@@ -223,6 +234,12 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     renderScoreboard();
     renderer.updateBots(arenaBots);
 
+    // Refresh side panel on a slower cadence.
+    if (sidePanel?.selectedId() && now - lastPanelRefresh > PANEL_REFRESH_INTERVAL) {
+      sidePanel.refresh();
+      lastPanelRefresh = now;
+    }
+
     animFrameId = requestAnimationFrame(loop);
   }
 
@@ -238,6 +255,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     destroy() {
       destroyed = true;
       cancelAnimationFrame(animFrameId);
+      sidePanel?.close();
       renderer.destroy();
       root.innerHTML = '';
     },

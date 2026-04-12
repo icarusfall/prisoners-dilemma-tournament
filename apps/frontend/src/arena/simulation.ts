@@ -6,6 +6,7 @@
 
 import type { BotSpec, BotView, DecisionFn, Move } from '@pdt/engine';
 import { compile, scoreRound, mulberry32, deriveInstanceSeed } from '@pdt/engine';
+import { narrateDecision } from './narrate.js';
 import {
   COLLISION_RADIUS,
   COOLDOWN_MS,
@@ -161,7 +162,7 @@ export function playArenaRound(
   b: ArenaBot,
   pairs: Map<string, PairState>,
   now: number,
-): { moveA: Move; moveB: Move; scoreA: number; scoreB: number; isFirstMeeting: boolean } {
+): { moveA: Move; moveB: Move; scoreA: number; scoreB: number; isFirstMeeting: boolean; narrationA: string; narrationB: string } {
   const key = pairKey(a.instanceId, b.instanceId);
   const isFirstA = a.instanceId < b.instanceId;
 
@@ -204,6 +205,10 @@ export function playArenaRound(
   const moveB = b.decide(viewB);
   const result = scoreRound(moveA, moveB);
 
+  // Generate narrations before history is modified.
+  const narrationA = narrateDecision(a.name, a.spec, viewA, moveA);
+  const narrationB = narrateDecision(b.name, b.spec, viewB, moveB);
+
   // Append to history (from the canonical A/B perspective).
   if (isFirstA) {
     pair.movesA.push(moveA);
@@ -215,7 +220,7 @@ export function playArenaRound(
 
   pair.lastInteraction = now;
 
-  return { moveA, moveB, scoreA: result.scoreA, scoreB: result.scoreB, isFirstMeeting };
+  return { moveA, moveB, scoreA: result.scoreA, scoreB: result.scoreB, isFirstMeeting, narrationA, narrationB };
 }
 
 // ---------------------------------------------------------------------
@@ -285,6 +290,8 @@ export function tick(
       moveB: result.moveB,
       scoreA: result.scoreA,
       scoreB: result.scoreB,
+      narrationA: result.narrationA,
+      narrationB: result.narrationB,
     });
 
     if (result.isFirstMeeting) {

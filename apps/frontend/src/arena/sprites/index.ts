@@ -13,6 +13,12 @@ import builder from './builder.svg?raw';
 import jogger from './jogger.svg?raw';
 import tourist from './tourist.svg?raw';
 import securityGuard from './security-guard.svg?raw';
+import camel from './camel.svg?raw';
+import ceo from './ceo.svg?raw';
+import djgroove from './djgroove.svg?raw';
+import dogWalker from './dog-walker.svg?raw';
+import mayaHead from './maya-head.svg?raw';
+import scotsman from './scotsman.svg?raw';
 
 export const SPRITE_NAMES = [
   'office-worker',
@@ -23,6 +29,12 @@ export const SPRITE_NAMES = [
   'jogger',
   'tourist',
   'security-guard',
+  'camel',
+  'ceo',
+  'djgroove',
+  'dog-walker',
+  'maya-head',
+  'scotsman',
 ] as const;
 
 export type SpriteName = (typeof SPRITE_NAMES)[number];
@@ -36,4 +48,10 @@ export const SPRITE_SVGS: Record<SpriteName, string> = {
   'jogger': jogger,
   'tourist': tourist,
   'security-guard': securityGuard,
+  'camel': camel,
+  'ceo': ceo,
+  'djgroove': djgroove,
+  'dog-walker': dogWalker,
+  'maya-head': mayaHead,
+  'scotsman': scotsman,
 };

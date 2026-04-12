@@ -32,7 +32,7 @@ export const DEMO_TICK_MS = 100;
 export const NORMAL_TICK_MS = 50;
 
 /** Duration the interaction line stays visible (ms). */
-export const LINE_DURATION_MS = 600;
+export const LINE_DURATION_MS = 3000;
 
 // ---------------------------------------------------------------------
 // Visual state
@@ -98,7 +98,7 @@ export interface PairState {
 // ---------------------------------------------------------------------
 
 export type ArenaEvent =
-  | { type: 'interaction'; aId: string; bId: string; moveA: Move; moveB: Move; scoreA: number; scoreB: number }
+  | { type: 'interaction'; aId: string; bId: string; moveA: Move; moveB: Move; scoreA: number; scoreB: number; narrationA: string; narrationB: string }
   | { type: 'first_defection'; botId: string; againstId: string }
   | { type: 'leader_change'; newLeader: string; score: number }
   | { type: 'first_meeting'; aId: string; bId: string };

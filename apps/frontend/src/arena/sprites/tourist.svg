@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Tourist: sun hat, camera -->
-  <circle cx="32" cy="16" r="8" fill="white"/>
-  <ellipse cx="32" cy="10" rx="14" ry="3" fill="white"/>
-  <path d="M24 26 C24 24 40 24 40 26 L41 48 L34 48 L34 42 L30 42 L30 48 L23 48 Z" fill="white"/>
-  <rect x="28" y="30" width="8" height="6" rx="1" fill="white" opacity="0.7"/>
-  <circle cx="32" cy="33" r="2" fill="white" opacity="0.4"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <circle cx="31.486" cy="16.07" r="5.606" style="fill:white;"/>
+    <path d="M45.127,29.921L45.127,48.654C45.127,52.019 42.395,54.75 39.031,54.75L26.838,54.75C23.473,54.75 20.742,52.019 20.742,48.654L20.742,29.921C20.742,26.557 23.473,23.825 26.838,23.825L39.031,23.825C42.395,23.825 45.127,26.557 45.127,29.921Z" style="fill:white;"/>
+    <path d="M36.064,13.921L36.064,14.669C36.064,14.875 35.897,15.042 35.691,15.042L22.61,15.042C22.404,15.042 22.236,14.875 22.236,14.669L22.236,13.921C22.236,13.715 22.404,13.547 22.61,13.547L35.691,13.547C35.897,13.547 36.064,13.715 36.064,13.921Z" style="fill:white;"/>
 </svg>
