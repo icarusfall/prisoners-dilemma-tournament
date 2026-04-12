@@ -1,6 +1,6 @@
 # Prisoner's Dilemma Tournament — Architecture
 
-Draft v0.6 · 2026-04-12
+Draft v0.7 · 2026-04-12
 
 ## 1. Vision
 
@@ -688,10 +688,10 @@ Live verification on the deployed Railway backend reproduces the textbook result
 - [x] **9 View routing.** `src/main.ts` — arena as full-viewport landing page, nav bar with Arena/Tournament tabs, Tournament tab mounts existing tournament-runner in a scrollable container.
 - [x] **10 Bot info side panel.** `src/arena/side-panel.ts` — click a sprite to slide in a panel from the right showing bot name, colour swatch, sprite type, score, rank, strategy summary (opening move, DSL rules in plain English, default action), per-opponent match history with cooperation rates and colour-coded round-by-round grid. Click again or × to close. Refreshes every 500ms while open.
 - [x] **11 Interaction tooltip narration.** `src/arena/narrate.ts` — traces DSL rules in the same order as the engine interpreter to explain *why* each bot made its decision (e.g. "Tit for Tat cooperated because opponent cooperated last turn"). Narrations generated at decision time, stored with interaction events, shown as tooltip on hover over interaction lines.
-- [ ] **12 Persistent caption narrator.** *Next up.*
-- [ ] **13 "What am I looking at?" button.**
-- [ ] **14 Arena setup panel** (bot selection + speed slider for custom runs).
-- [ ] **15 Polish pass.**
+- [x] **12 Persistent caption narrator.** `src/arena/narrator.ts` — smart event filter that prioritises betrayals, leader changes, defection spirals, and score milestones. Rate-limited to avoid caption spam. Fed by ArenaEvents from the simulation; outputs caption text strings rendered in the bottom overlay bar with 5s expiry.
+- [x] **13 "What am I looking at?" button.** `src/arena/explainer-overlay.ts` — top-right button opens a full-viewport semi-transparent overlay explaining the arena: the Prisoner's Dilemma payoff matrix, what the colours/lines mean, how to interact (click bots, hover lines, read captions). Self-contained content for Phase 2; Phase 3 will link to the full explainer webpages.
+- [x] **14 Arena setup panel.** `src/arena/setup-panel.ts` — gear button below the explainer button opens a slide-in panel with speed presets (0.5×–5×) and per-bot quantity steppers (0–10 instances each, supporting multiple instances of the same strategy per §3.4). "Start Arena" rebuilds the simulation with the chosen roster and config without destroying the Mapbox map. Quick-select buttons: "All ×1", "Clear". Names auto-disambiguated ("TFT (1)", "TFT (2)") when duplicates present.
+- [x] **15 Polish pass.** Overflow truncation on bot names in setup panel, flex-shrink on panel sections to prevent footer push-off, tabular-nums on count displays.
 
 #### Notable design choices made during Phase 2
 
@@ -699,6 +699,7 @@ Live verification on the deployed Railway backend reproduces the textbook result
 - **Narration is generated before history is modified** so the `BotView` faithfully represents the state at decision time. The `narrate.ts` module re-evaluates conditions (mirroring the engine interpreter) rather than modifying the engine itself — keeps the engine pure and avoids coupling.
 - **Side panel refreshes on a 500ms interval** (not every frame) to avoid DOM thrashing. The game loop continues at full frame rate.
 - **Interaction lines are ephemeral** (600ms default). The tooltip shows while hovering a live line; narration data is stored per-line and cleaned up on expiry.
+- **Simulation restart preserves the map** — the setup panel's "Start" callback tears down only the game loop, bot state, pairs, active lines, and narrator, then rebuilds them. The Mapbox renderer and DOM scaffolding survive, avoiding an expensive map re-init.
 
 ### 14.1 Later phases (sketch, not binding)
 
