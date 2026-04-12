@@ -64,6 +64,19 @@ export function createExplainerOverlay(): ExplainerOverlay {
     if (e.target === overlay) closeOverlay();
   });
 
+  // "Go deeper" link navigates to the How It Works view.
+  const goDeeper = overlay.querySelector('#explainer-go-deeper') as HTMLAnchorElement | null;
+  if (goDeeper) {
+    goDeeper.addEventListener('mouseenter', () => { goDeeper.style.background = '#3a4a88'; });
+    goDeeper.addEventListener('mouseleave', () => { goDeeper.style.background = '#2f3b6e'; });
+    goDeeper.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeOverlay();
+      const nav = (window as unknown as Record<string, unknown>).__pdtNavigateExplainer;
+      if (typeof nav === 'function') (nav as (slug: string) => void)('what-is-this');
+    });
+  }
+
   // Escape key closes.
   const onKey = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') closeOverlay();
@@ -160,7 +173,14 @@ const EXPLAINER_HTML = `
   so fascinating: <em>nice guys don't always finish last</em>.
 </p>
 
-<p style="margin-top:24px;color:#888;font-size:0.85rem;">
-  Built by the L&amp;G AI Club · full explainer pages coming soon
-</p>
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+  <a href="#" id="explainer-go-deeper" style="display:inline-block;padding:8px 16px;
+     background:#2f3b6e;color:#fff;border-radius:6px;text-decoration:none;font-size:0.9rem;
+     transition:background 0.15s;">
+    Read the full How It Works guide &rarr;
+  </a>
+  <p style="margin-top:10px;color:#888;font-size:0.85rem;">
+    Built by the L&amp;G AI Club
+  </p>
+</div>
 `;

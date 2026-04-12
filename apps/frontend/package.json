@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@pdt/engine": "*",
-    "mapbox-gl": "^3.21.0"
+    "mapbox-gl": "^3.21.0",
+    "marked": "^18.0.0"
   },
   "devDependencies": {
     "vite": "^5.4.11",

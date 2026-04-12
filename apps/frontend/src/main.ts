@@ -1,13 +1,14 @@
 // @pdt/frontend — entry point with view routing.
 //
-// Two views: Arena (landing page) and Tournament. A minimal nav bar at
-// the top lets the user switch between them. The arena auto-demo
-// starts immediately on page load.
+// Three views: Arena (landing page), Tournament, and How It Works.
+// A minimal nav bar at the top lets the user switch between them.
+// The arena auto-demo starts immediately on page load.
 
 import { ENGINE_VERSION } from '@pdt/engine';
 import { ApiError, BACKEND_URL, getHealth } from './api.js';
 import { mountArena, type ArenaHandle } from './arena/arena-runner.js';
 import { mountTournamentRunner } from './views/tournament-runner.js';
+import { mountHowItWorks, type HowItWorksHandle } from './views/how-it-works.js';
 
 const app = document.getElementById('app');
 if (!app) {
@@ -27,6 +28,7 @@ app.innerHTML = `
         <span style="font-weight:bold;font-size:1rem;">Prisoner's Dilemma</span>
         <button id="tab-arena" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Arena</button>
         <button id="tab-tournament" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Tournament</button>
+        <button id="tab-howit" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">How It Works</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;font-size:0.8rem;color:#888;">
         <span>Engine v${ENGINE_VERSION}</span>
@@ -39,6 +41,7 @@ app.innerHTML = `
 
 const tabArena = document.getElementById('tab-arena') as HTMLButtonElement;
 const tabTournament = document.getElementById('tab-tournament') as HTMLButtonElement;
+const tabHowIt = document.getElementById('tab-howit') as HTMLButtonElement;
 const viewEl = document.getElementById('view')!;
 const healthEl = document.getElementById('health-badge')!;
 
@@ -46,44 +49,67 @@ const healthEl = document.getElementById('health-badge')!;
 const ACTIVE_TAB_STYLE = 'background:#2f3b6e;color:#fff;';
 const INACTIVE_TAB_STYLE = 'background:transparent;color:#999;';
 
-function setActiveTab(tab: 'arena' | 'tournament'): void {
-  tabArena.style.cssText = `all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;${tab === 'arena' ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}`;
-  tabTournament.style.cssText = `all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;${tab === 'tournament' ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}`;
+function setActiveTab(tab: View): void {
+  const tabs: Record<View, HTMLButtonElement> = { arena: tabArena, tournament: tabTournament, howit: tabHowIt };
+  for (const [key, btn] of Object.entries(tabs)) {
+    btn.style.cssText = `all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;${key === tab ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}`;
+  }
 }
 
 // ---- View management ----
-type View = 'arena' | 'tournament';
+type View = 'arena' | 'tournament' | 'howit';
 let currentView: View | null = null;
 let arenaHandle: ArenaHandle | null = null;
+let howItHandle: HowItWorksHandle | null = null;
+
+// Track requested explainer slug for deep-linking from the arena overlay.
+let pendingSlug: string | null = null;
 
 async function switchView(target: View): Promise<void> {
-  if (target === currentView) return;
+  if (target === currentView && !pendingSlug) return;
 
   // Teardown current view.
   if (arenaHandle) {
     arenaHandle.destroy();
     arenaHandle = null;
   }
+  if (howItHandle) {
+    howItHandle.destroy();
+    howItHandle = null;
+  }
   viewEl.innerHTML = '';
+  viewEl.style.overflowY = '';
 
   currentView = target;
   setActiveTab(target);
 
   if (target === 'arena') {
     arenaHandle = await mountArena(viewEl);
-  } else {
-    // Tournament view gets a scrollable container with the classic layout.
+  } else if (target === 'tournament') {
     const container = document.createElement('div');
     container.style.cssText =
       'max-width:960px;margin:1.5rem auto;padding:0 1rem;overflow-y:auto;height:100%;color:#ddd;';
     viewEl.appendChild(container);
     viewEl.style.overflowY = 'auto';
     await mountTournamentRunner(container);
+  } else if (target === 'howit') {
+    howItHandle = mountHowItWorks(viewEl);
+    if (pendingSlug) {
+      howItHandle.show(pendingSlug);
+      pendingSlug = null;
+    }
   }
 }
 
 tabArena.addEventListener('click', () => void switchView('arena'));
 tabTournament.addEventListener('click', () => void switchView('tournament'));
+tabHowIt.addEventListener('click', () => void switchView('howit'));
+
+// Allow other modules to navigate to a specific explainer page.
+(window as unknown as Record<string, unknown>).__pdtNavigateExplainer = (slug: string) => {
+  pendingSlug = slug;
+  void switchView('howit');
+};
 
 // ---- Boot ----
 void runHealthCheck(healthEl);

@@ -1,6 +1,6 @@
 # Prisoner's Dilemma Tournament — Architecture
 
-Draft v0.7 · 2026-04-12
+Draft v0.8 · 2026-04-12
 
 ## 1. Vision
 
@@ -454,7 +454,7 @@ A single directory, `docs/explainers/`, holds Markdown files that are consumed b
 
 ### 10.2 Content inventory
 
-The nine files below are the v1 set. The inventory is pinned down **now** — even though drafting is deferred — so that terminology stays consistent as the code is written and so there are no surprises when the content phase arrives.
+The nine files below are the v1 set, all drafted as of Phase 3.
 
 - `00-what-is-this.md` — one-page project overview. What this is, why the AI Club built it, what you can do here.
 - `01-prisoners-dilemma.md` — the game. Payoff matrix, C vs D, why defection is individually rational but collectively bad. Concrete walked example.
@@ -470,11 +470,9 @@ Each explainer is short (one to two pages), friendly in tone, and ends with a "n
 
 ### 10.3 Phasing
 
-- **Phase 1**: inventory pinned (this section), `docs/explainers/` directory created, terminology in the code aligned with what the explainers will say. No drafting yet.
-- **Later phase** (paired with whatever phase builds the "How it works" webpage routes in the frontend — likely around the time the arena ships, since the arena's "What am I looking at?" button links to them): draft all nine files, render them as in-site webpages, wire up the navigation.
+- **Phase 1** *(done)*: inventory pinned (this section), `docs/explainers/` directory created, terminology in the code aligned with what the explainers will say.
+- **Phase 3** *(done)*: all nine files drafted with full prose, rendered as in-site webpages under the "How It Works" tab, prev/next navigation, arena "What am I looking at?" button links through.
 - **MCP phase**: serve the same files as MCP resources with zero new content authoring.
-
-The order is deliberate: the **arena itself** is the first teaching layer (§8.1), so it needs to exist before the explainer webpages become useful. Explainer pages that point at an arena that doesn't exist yet would be backwards.
 
 ## 11. Persistence
 
@@ -701,13 +699,27 @@ Live verification on the deployed Railway backend reproduces the textbook result
 - **Interaction lines are ephemeral** (600ms default). The tooltip shows while hovering a live line; narration data is stored per-line and cleaned up on expiry.
 - **Simulation restart preserves the map** — the setup panel's "Start" callback tears down only the game loop, bot state, pairs, active lines, and narrator, then rebuilds them. The Mapbox renderer and DOM scaffolding survive, avoiding an expensive map re-init.
 
+#### Progress as of 2026-04-12 (Phase 3 complete)
+
+- [x] **1 Install `marked` for client-side Markdown rendering.** Added to `apps/frontend` dependencies.
+- [x] **2 Draft all nine explainer Markdown files.** Full prose content for 00–08 in `docs/explainers/`. Covers the game, iterated PD, Axelrod's tournaments, tournament modes, DSL reference with worked examples, bot creation flows, MCP guide (placeholder for Phase 5), the arena, and further reading. Hofstadter's *Metamagical Themas* featured prominently; Newcomb's Paradox included in the further reading.
+- [x] **3 How It Works view.** `src/views/how-it-works.ts` — loads all `docs/explainers/*.md` files via `import.meta.glob('?raw')`, parses frontmatter, renders Markdown to HTML with `marked`, displays a table of contents with numbered links, and per-page view with prev/next navigation. Dark-themed styles for headings, tables, code blocks, blockquotes.
+- [x] **4 Nav bar tab.** Added "How It Works" as a third tab in `main.ts` alongside Arena and Tournament.
+- [x] **5 Arena → How It Works link.** The "What am I looking at?" overlay now has a "Read the full How It Works guide →" button that navigates to the How It Works view via a global navigation callback (`__pdtNavigateExplainer`).
+
+#### Notable design choices made during Phase 3
+
+- **Build-time glob, client-side render.** Markdown files are imported as raw strings at build time (Vite `import.meta.glob` with `?raw`), avoiding a runtime fetch. `marked` renders HTML on first mount. This keeps the explainers as the single source of truth (§10.1) while avoiding a build plugin.
+- **Frontmatter parsed manually.** A 10-line parser extracts `title` and `slug` from YAML frontmatter, avoiding a dependency on a full YAML parser for two fields.
+- **Global navigation callback.** The arena overlay navigates to How It Works via `window.__pdtNavigateExplainer(slug)` — a pragmatic bridge between the arena module (which doesn't know about routing) and main.ts (which does). This will be replaced with proper routing if the app grows.
+
 ### 14.1 Later phases (sketch, not binding)
 
 Rough order of subsequent phases, each independently shippable:
 
-- **Phase 2 — Arena.** Mapbox map of 1 Coleman Street, agent sprites, random walks, collisions → engine round, visual states (light green / red / dark green), arena-as-tutorial landing demo (§8.1). This is what makes the site feel *alive* for colleagues.
-- **Phase 3 — Explainer webpages and "How it works" navigation.** Draft all nine `docs/explainers/*.md` files. Render them as in-site routes under `/how-it-works/{slug}`. Wire the arena's "What am I looking at?" button to them. Paired with Phase 2 because the arena is the primary teaching surface that the explainer pages support and link to.
-- **Phase 4 — Natural-language bot compiler.** Anthropic API integration, `POST /api/compile-bot`, frontend textarea UI, JSON Schema validation with one retry.
+- ~~**Phase 2 — Arena.**~~ *Done.* Mapbox map, agent sprites, random walks, collisions, arena-as-tutorial landing demo, side panel, narration, setup panel with multi-instance support.
+- ~~**Phase 3 — Explainer webpages.**~~ *Done.* All nine explainers drafted, rendered as "How It Works" tab with prev/next nav, arena overlay links through.
+- **Phase 4 — Natural-language bot compiler.** *Next up.* Anthropic API integration, `POST /api/compile-bot`, frontend textarea UI, JSON Schema validation with one retry.
 - **Phase 5 — MCP server.** Tools (§7.1), resources (§7.2) auto-served from `docs/explainers/` and `engine/presets/`, prompts (§7.3). Per-player token auth.
 - **Phase 6 — Zombies.** Shambler and infected variants, conversion mechanics, arena-mode only. Small.
 - **Phase 7 — Live MCP decisions (C3).** Slow-tick arena mode, pending-decision polling tools, default-spec fallback on timeout. The "be the bot" experience.
