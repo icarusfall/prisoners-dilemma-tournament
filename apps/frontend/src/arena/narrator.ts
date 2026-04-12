@@ -81,6 +81,30 @@ export function createNarrator(
           break;
         }
 
+        case 'zombie_conversion': {
+          captions.push({
+            text: `${botName(ev.zombieId)} converted ${botName(ev.victimId)} to the horde!`,
+            priority: 5,
+          });
+          break;
+        }
+
+        case 'zombie_apocalypse_end': {
+          if (ev.survivor) {
+            const secs = (ev.survivorTime / 1000).toFixed(1);
+            captions.push({
+              text: `The zombie apocalypse is over — ${botName(ev.survivor)} is the last one standing! Survived ${secs}s.`,
+              priority: 6,
+            });
+          } else {
+            captions.push({
+              text: 'The zombie apocalypse is complete — no survivors.',
+              priority: 6,
+            });
+          }
+          break;
+        }
+
         case 'interaction': {
           const aName = botName(ev.aId);
           const bName = botName(ev.bId);

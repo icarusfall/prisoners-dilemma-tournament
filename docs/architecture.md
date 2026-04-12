@@ -713,6 +713,22 @@ Live verification on the deployed Railway backend reproduces the textbook result
 - **Frontmatter parsed manually.** A 10-line parser extracts `title` and `slug` from YAML frontmatter, avoiding a dependency on a full YAML parser for two fields.
 - **Global navigation callback.** The arena overlay navigates to How It Works via `window.__pdtNavigateExplainer(slug)` — a pragmatic bridge between the arena module (which doesn't know about routing) and main.ts (which does). This will be replaced with proper routing if the app grows.
 
+#### Progress as of 2026-04-12 (Phase 6 complete)
+
+- [x] **1 Zombie types and constants.** `ArenaBot` extended with `isZombie`, `zombieVariant`, `convertedAt`. Two new `ArenaEvent` variants: `zombie_conversion`, `zombie_apocalypse_end`. Speed constants: shambler 5 m/s, infected 35 m/s. `ZombieVariant` type.
+- [x] **2 Zombie simulation logic.** `createZombieBot(variant, bounds, rng)` spawns a zombie with dummy spec and appropriate speed. `convertToZombie(bot, variant, now)` converts a living bot — sets `isZombie`, prefixes name with 🧟, replaces `decide` with `() => 'D'`, adjusts speed. `tick()` handles zombie × non-zombie collisions (conversion) and detects apocalypse end (≤1 survivors). Regular collision detection skips zombie pairs.
+- [x] **3 Zombie narration.** Narrator handles `zombie_conversion` (priority 5: "X converted Y to the horde!") and `zombie_apocalypse_end` (priority 6: survivor name + survival time, or "no survivors").
+- [x] **4 Zombie setup controls.** Setup panel gains a "Zombies" section between Speed and Bots with shambler/infected steppers (0–5 each). `onStart` callback extended with `ZombieSetup` parameter.
+- [x] **5 Zombie spawning wired.** Arena runner imports `createZombieBot`, spawns shamblers and infected after regular bots in `startSimulation()`. Caption message includes zombie count when applicable.
+- [x] **6 Vite proxy.** Added `/api` → `localhost:3000` proxy to `vite.config.ts` for local development.
+
+#### Notable design choices made during Phase 6
+
+- **Zombies use a dummy BotSpec** — they never play IPD, so they carry a placeholder spec with `kind: 'dsl'` and `default: D`. Their `decide` function is a simple `() => 'D'` closure.
+- **Zombie movement uses the same wander logic** as regular bots — they just move at different speeds. No special AI or pathfinding.
+- **Conversion is variant-preserving** — a shambler converts victims into shamblers, an infected into infected. No cross-variant conversion.
+- **Zombie cap at 5 per variant** in the setup panel. Enough for dramatic effect without overwhelming the arena.
+
 ### 14.1 Later phases (sketch, not binding)
 
 Rough order of subsequent phases, each independently shippable:
@@ -720,8 +736,8 @@ Rough order of subsequent phases, each independently shippable:
 - ~~**Phase 2 — Arena.**~~ *Done.* Mapbox map, agent sprites, random walks, collisions, arena-as-tutorial landing demo, side panel, narration, setup panel with multi-instance support.
 - ~~**Phase 3 — Explainer webpages.**~~ *Done.* All nine explainers drafted, rendered as "How It Works" tab with prev/next nav, arena overlay links through.
 - **Phase 4 — Natural-language bot compiler.** *Done.* Anthropic API integration (`@anthropic-ai/sdk`, Sonnet model), `POST /api/compile-bot` route with JSON Schema validation and one retry on failure, frontend "Create Bot" tab with describe → compile → review/edit → save flow.
-- **Phase 5 — MCP server.** Tools (§7.1), resources (§7.2) auto-served from `docs/explainers/` and `engine/presets/`, prompts (§7.3). Per-player token auth.
-- **Phase 6 — Zombies.** Shambler and infected variants, conversion mechanics, arena-mode only. Small.
+- **Phase 5 — MCP server.** *Done.* Tools (§7.1): submit_bot, validate_bot_spec, list_my_bots, update_bot, delete_bot, run_tournament, get_leaderboard, get_match_history. Resources (§7.2): pd://docs/*, pd://schema/bot-spec.json, pd://presets/*, pd://scoring — auto-served from `docs/explainers/` and engine presets. Prompts (§7.3): start_building_a_bot, analyse_my_bot_performance. Player creation API + Connect tab in frontend. Streamable HTTP transport at `/mcp`.
+- **Phase 6 — Zombies.** *Done.* Shambler and infected variants, conversion mechanics, arena-mode only. See §9 and progress notes below.
 - **Phase 7 — Live MCP decisions (C3).** Slow-tick arena mode, pending-decision polling tools, default-spec fallback on timeout. The "be the bot" experience.
 - **Phase 8 — Code-tier bots.** `BotSpec.kind = "code"` path with Web Worker / `isolated-vm` sandbox, CPU/time budget, deterministic RNG injection.
 

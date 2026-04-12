@@ -15,6 +15,7 @@ import { COLEMAN_STREET } from './offices/coleman-street.js';
 import { createRenderer, type ArenaRenderer } from './renderer.js';
 import {
   createArenaBot,
+  createZombieBot,
   resetInstanceCounter,
   tick,
   type TickResult,
@@ -32,7 +33,7 @@ import { mulberry32 } from '@pdt/engine';
 import { createSidePanel, type SidePanel } from './side-panel.js';
 import { createNarrator, type Narrator } from './narrator.js';
 import { createExplainerOverlay, type ExplainerOverlay } from './explainer-overlay.js';
-import { createSetupPanel, type SetupPanel } from './setup-panel.js';
+import { createSetupPanel, type SetupPanel, type ZombieSetup } from './setup-panel.js';
 
 // Default demo roster: all eight classical presets.
 const DEMO_BOT_IDS = ['tft', 'alld', 'grim', 'random', 'allc', 'tf2t', 'pavlov', 'generous_tft'];
@@ -82,10 +83,10 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
 
   root.appendChild(wrapper);
 
-  // ---- Fetch all preset bots ----
+  // ---- Fetch all bots (presets + user-created) ----
   let allBots: BotRecord[];
   try {
-    allBots = await listBots({ created_via: 'preset' });
+    allBots = await listBots();
   } catch {
     captionBar.textContent = 'Failed to load bots from backend.';
     return { destroy() { root.innerHTML = ''; } };
@@ -229,7 +230,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   // ---- Start / restart simulation ----
-  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string): void {
+  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }): void {
     // Stop existing loop.
     loopRunning = false;
     cancelAnimationFrame(animFrameId);
@@ -258,6 +259,14 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       const displayName = total > 1 ? `${b.name} (${idx})` : b.name;
       return createArenaBot(b.id, displayName, b.spec, [...COLEMAN_STREET.bounds], rng);
     });
+    // Spawn zombies.
+    for (let i = 0; i < zombies.shamblers; i++) {
+      arenaBots.push(createZombieBot('shambler', [...COLEMAN_STREET.bounds], rng));
+    }
+    for (let i = 0; i < zombies.infected; i++) {
+      arenaBots.push(createZombieBot('infected', [...COLEMAN_STREET.bounds], rng));
+    }
+
     pairs = new Map();
     activeLines = [];
 
@@ -282,9 +291,11 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let setupPanel: SetupPanel = createSetupPanel({
     allBots,
     activeBotIds: demoBots.map((b) => b.id),
-    onStart(roster, newConfig) {
+    onStart(roster, newConfig, zombies) {
       if (roster.length < 2) return;
-      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing...`);
+      const zombieTotal = zombies.shamblers + zombies.infected;
+      const zombieMsg = zombieTotal > 0 ? ` with ${zombieTotal} zombie${zombieTotal > 1 ? 's' : ''}` : '';
+      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}...`, zombies);
     },
   });
   wrapper.appendChild(setupPanel.el);

@@ -34,6 +34,14 @@ export const NORMAL_TICK_MS = 50;
 /** Duration the interaction line stays visible (ms). */
 export const LINE_DURATION_MS = 3000;
 
+/** Shambler speed — slow, inexorable (Night of the Living Dead). */
+export const ZOMBIE_SHAMBLER_SPEED = 5;
+
+/** Infected speed — fast, terrifying (28 Days Later). */
+export const ZOMBIE_INFECTED_SPEED = 35;
+
+export type ZombieVariant = 'shambler' | 'infected';
+
 // ---------------------------------------------------------------------
 // Visual state
 // ---------------------------------------------------------------------
@@ -65,6 +73,10 @@ export interface ArenaBot {
   /** Timestamp when the current flash expires (0 = idle). */
   flashUntil: number;
   isZombie: boolean;
+  /** Zombie variant (only meaningful when isZombie is true). */
+  zombieVariant?: ZombieVariant;
+  /** Timestamp when this bot was converted to zombie (0 if spawned as zombie). */
+  convertedAt: number;
 
   // Wander
   /** Target position for lazy velocity retargeting. */
@@ -101,7 +113,9 @@ export type ArenaEvent =
   | { type: 'interaction'; aId: string; bId: string; moveA: Move; moveB: Move; scoreA: number; scoreB: number; narrationA: string; narrationB: string }
   | { type: 'first_defection'; botId: string; againstId: string }
   | { type: 'leader_change'; newLeader: string; score: number }
-  | { type: 'first_meeting'; aId: string; bId: string };
+  | { type: 'first_meeting'; aId: string; bId: string }
+  | { type: 'zombie_conversion'; victimId: string; zombieId: string }
+  | { type: 'zombie_apocalypse_end'; survivor: string | null; survivorTime: number };
 
 // ---------------------------------------------------------------------
 // Arena config (overridable for custom runs)

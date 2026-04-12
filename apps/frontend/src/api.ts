@@ -257,3 +257,32 @@ export function getMatch(tournamentId: string, matchId: string): Promise<MatchRe
     `/api/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}`,
   );
 }
+
+// ---------------------------------------------------------------------
+// /api/players
+// ---------------------------------------------------------------------
+
+export interface PlayerRecord {
+  id: string;
+  display_name: string;
+  mcp_token: string;
+  created_at: string;
+}
+
+export interface PlayerSummary {
+  id: string;
+  display_name: string;
+  created_at: string;
+}
+
+export function createPlayer(displayName: string): Promise<PlayerRecord> {
+  return request<PlayerRecord>('/api/players', {
+    method: 'POST',
+    body: { display_name: displayName },
+  });
+}
+
+export async function listPlayers(): Promise<PlayerSummary[]> {
+  const data = await request<{ players: PlayerSummary[] }>('/api/players');
+  return data.players;
+}

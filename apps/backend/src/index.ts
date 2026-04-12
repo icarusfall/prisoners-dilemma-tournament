@@ -24,6 +24,8 @@ import { seedPresets } from './seed.js';
 import { botsRoutes } from './routes/bots.js';
 import { tournamentsRoutes } from './routes/tournaments.js';
 import { compileBotRoute } from './routes/compile-bot.js';
+import { playersRoutes } from './routes/players.js';
+import { mcpHandler } from './mcp/handler.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = '0.0.0.0';
@@ -84,6 +86,8 @@ async function main(): Promise<void> {
   await app.register(botsRoutes, { sql });
   await app.register(tournamentsRoutes, { sql });
   await app.register(compileBotRoute);
+  await app.register(playersRoutes, { sql });
+  await app.register(mcpHandler, { sql });
 
   // ---- Listen ----
   try {

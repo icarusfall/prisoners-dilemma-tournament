@@ -9,13 +9,18 @@ import type { BotRecord } from '../api.js';
 import type { ArenaConfig } from './types.js';
 import { DEFAULT_CONFIG } from './types.js';
 
+export interface ZombieSetup {
+  shamblers: number;
+  infected: number;
+}
+
 export interface SetupPanelOptions {
   /** All available bots from the backend. */
   allBots: BotRecord[];
   /** Bot IDs currently in the arena (may contain duplicates for instances). */
   activeBotIds: string[];
-  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config. */
-  onStart(bots: BotRecord[], config: ArenaConfig): void;
+  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup. */
+  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup): void;
 }
 
 export interface SetupPanel {
@@ -104,6 +109,63 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
 
   speedSection.appendChild(speedRow);
   panel.appendChild(speedSection);
+
+  // ---- Zombie section ----
+  const zombieSection = document.createElement('div');
+  zombieSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+
+  const zombieLabel = document.createElement('div');
+  zombieLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;';
+  zombieLabel.textContent = 'Zombies';
+  zombieSection.appendChild(zombieLabel);
+
+  const zombieCounts = { shamblers: 0, infected: 0 };
+
+  function createZombieRow(label: string, key: 'shamblers' | 'infected'): HTMLElement {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:4px 0;';
+
+    const nameEl = document.createElement('span');
+    nameEl.textContent = label;
+    nameEl.style.cssText = 'flex:1;';
+    row.appendChild(nameEl);
+
+    const stepper = document.createElement('div');
+    stepper.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0;';
+
+    const minus = document.createElement('button');
+    minus.textContent = '−';
+    minus.style.cssText = stepperBtnStyle();
+
+    const countEl = document.createElement('span');
+    countEl.style.cssText = 'display:inline-block;width:24px;text-align:center;font-size:0.9rem;font-variant-numeric:tabular-nums;';
+    countEl.textContent = '0';
+
+    const plus = document.createElement('button');
+    plus.textContent = '+';
+    plus.style.cssText = stepperBtnStyle();
+
+    minus.addEventListener('click', () => {
+      if (zombieCounts[key] <= 0) return;
+      zombieCounts[key]--;
+      countEl.textContent = String(zombieCounts[key]);
+    });
+    plus.addEventListener('click', () => {
+      if (zombieCounts[key] >= 5) return;
+      zombieCounts[key]++;
+      countEl.textContent = String(zombieCounts[key]);
+    });
+
+    stepper.appendChild(minus);
+    stepper.appendChild(countEl);
+    stepper.appendChild(plus);
+    row.appendChild(stepper);
+    return row;
+  }
+
+  zombieSection.appendChild(createZombieRow('Shamblers (slow)', 'shamblers'));
+  zombieSection.appendChild(createZombieRow('Infected (fast)', 'infected'));
+  panel.appendChild(zombieSection);
 
   // ---- Bot selection section ----
   const botSection = document.createElement('div');
@@ -233,7 +295,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
       tickMs: preset.tick,
     };
     closePanel();
-    onStart(roster, config);
+    onStart(roster, config, { ...zombieCounts });
   });
   footer.appendChild(startBtn);
   panel.appendChild(footer);
