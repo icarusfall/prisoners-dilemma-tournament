@@ -179,6 +179,27 @@ export function deleteBot(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------
+// /api/compile-bot
+// ---------------------------------------------------------------------
+
+export interface CompileBotResponse {
+  spec: BotSpec;
+}
+
+export interface CompileBotError {
+  error: string;
+  message: string;
+  details?: Array<{ path: string; message: string }>;
+}
+
+export function compileBot(description: string): Promise<CompileBotResponse> {
+  return request<CompileBotResponse>('/api/compile-bot', {
+    method: 'POST',
+    body: { description },
+  });
+}
+
+// ---------------------------------------------------------------------
 // /api/tournaments
 // ---------------------------------------------------------------------
 

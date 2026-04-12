@@ -719,7 +719,7 @@ Rough order of subsequent phases, each independently shippable:
 
 - ~~**Phase 2 — Arena.**~~ *Done.* Mapbox map, agent sprites, random walks, collisions, arena-as-tutorial landing demo, side panel, narration, setup panel with multi-instance support.
 - ~~**Phase 3 — Explainer webpages.**~~ *Done.* All nine explainers drafted, rendered as "How It Works" tab with prev/next nav, arena overlay links through.
-- **Phase 4 — Natural-language bot compiler.** *Next up.* Anthropic API integration, `POST /api/compile-bot`, frontend textarea UI, JSON Schema validation with one retry.
+- **Phase 4 — Natural-language bot compiler.** *Done.* Anthropic API integration (`@anthropic-ai/sdk`, Sonnet model), `POST /api/compile-bot` route with JSON Schema validation and one retry on failure, frontend "Create Bot" tab with describe → compile → review/edit → save flow.
 - **Phase 5 — MCP server.** Tools (§7.1), resources (§7.2) auto-served from `docs/explainers/` and `engine/presets/`, prompts (§7.3). Per-player token auth.
 - **Phase 6 — Zombies.** Shambler and infected variants, conversion mechanics, arena-mode only. Small.
 - **Phase 7 — Live MCP decisions (C3).** Slow-tick arena mode, pending-decision polling tools, default-spec fallback on timeout. The "be the bot" experience.
