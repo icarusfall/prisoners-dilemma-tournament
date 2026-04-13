@@ -8,6 +8,7 @@
 import type { BotRecord } from '../api.js';
 import type { ArenaConfig } from './types.js';
 import { DEFAULT_CONFIG, SLOW_TICK_CONFIG } from './types.js';
+import { GAME_TYPES, type GameType } from '@pdt/engine';
 
 export interface ZombieSetup {
   shamblers: number;
@@ -19,8 +20,8 @@ export interface SetupPanelOptions {
   allBots: BotRecord[];
   /** Bot IDs currently in the arena (may contain duplicates for instances). */
   activeBotIds: string[];
-  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup + live bot IDs. */
-  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup, liveBotIds: Set<string>): void;
+  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup + live bot IDs + game type. */
+  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup, liveBotIds: Set<string>, gameType: GameType): void;
 }
 
 export interface SetupPanel {
@@ -54,38 +55,38 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
   gearBtn.textContent = '⚙ Setup';
   gearBtn.style.cssText =
     'position:absolute;top:52px;right:12px;z-index:15;' +
-    'padding:7px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;' +
-    'background:rgba(0,0,0,0.7);color:#eee;font:13px/1 system-ui,sans-serif;' +
-    'cursor:pointer;backdrop-filter:blur(4px);transition:background 0.15s;';
-  gearBtn.addEventListener('mouseenter', () => { gearBtn.style.background = 'rgba(50,50,80,0.85)'; });
-  gearBtn.addEventListener('mouseleave', () => { gearBtn.style.background = 'rgba(0,0,0,0.7)'; });
+    'padding:7px 12px;border:1px solid #ccc;border-radius:6px;' +
+    'background:rgba(255,255,255,0.9);color:#333;font:13px/1 system-ui,sans-serif;' +
+    'cursor:pointer;backdrop-filter:blur(4px);transition:background 0.15s;box-shadow:0 1px 4px rgba(0,0,0,0.1);';
+  gearBtn.addEventListener('mouseenter', () => { gearBtn.style.background = 'rgba(230,230,240,0.95)'; });
+  gearBtn.addEventListener('mouseleave', () => { gearBtn.style.background = 'rgba(255,255,255,0.9)'; });
 
   // ---- Panel ----
   const panel = document.createElement('div');
   panel.style.cssText =
     'position:absolute;top:0;right:0;width:300px;height:100%;z-index:22;' +
-    'background:rgba(15,15,30,0.95);backdrop-filter:blur(8px);' +
-    'border-left:1px solid rgba(255,255,255,0.1);' +
-    'display:none;flex-direction:column;color:#ddd;font:13px/1.5 system-ui,sans-serif;';
+    'background:rgba(245,245,250,0.97);backdrop-filter:blur(8px);' +
+    'border-left:1px solid #ddd;' +
+    'display:none;flex-direction:column;color:#333;font:13px/1.5 system-ui,sans-serif;';
 
   // Header
   const header = document.createElement('div');
-  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
   header.innerHTML = '<span style="font-weight:bold;font-size:0.95rem;">Arena Setup</span>';
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '✕';
-  closeBtn.style.cssText = 'all:unset;cursor:pointer;font-size:18px;color:#aaa;padding:2px 6px;';
-  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#fff'; });
-  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#aaa'; });
+  closeBtn.style.cssText = 'all:unset;cursor:pointer;font-size:18px;color:#999;padding:2px 6px;';
+  closeBtn.addEventListener('mouseenter', () => { closeBtn.style.color = '#333'; });
+  closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#999'; });
   header.appendChild(closeBtn);
   panel.appendChild(header);
 
   // ---- Speed section ----
   const speedSection = document.createElement('div');
-  speedSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+  speedSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
 
   const speedLabel = document.createElement('div');
-  speedLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;';
+  speedLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
   speedLabel.textContent = 'Speed';
   speedSection.appendChild(speedLabel);
 
@@ -110,15 +111,52 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
   speedSection.appendChild(speedRow);
   panel.appendChild(speedSection);
 
+  // ---- Game type section ----
+  const gameSection = document.createElement('div');
+  gameSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
+
+  const gameLabel = document.createElement('div');
+  gameLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
+  gameLabel.textContent = 'Game Type';
+  gameSection.appendChild(gameLabel);
+
+  let selectedGameType: GameType = 'prisoners-dilemma';
+  const gameTypeKeys = Object.keys(GAME_TYPES) as GameType[];
+  const gameBtns: HTMLButtonElement[] = [];
+
+  const gameRow = document.createElement('div');
+  gameRow.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+  const gameDesc = document.createElement('div');
+  gameDesc.style.cssText = 'font-size:0.75rem;color:#888;margin-top:6px;line-height:1.4;';
+  gameDesc.textContent = GAME_TYPES[selectedGameType].description;
+
+  for (const gt of gameTypeKeys) {
+    const btn = document.createElement('button');
+    btn.textContent = GAME_TYPES[gt].label;
+    btn.style.cssText = gameBtnStyle(gt === selectedGameType);
+    btn.addEventListener('click', () => {
+      selectedGameType = gt;
+      gameBtns.forEach((b, j) => { b.style.cssText = gameBtnStyle(gameTypeKeys[j] === gt); });
+      gameDesc.textContent = GAME_TYPES[gt].description;
+    });
+    gameBtns.push(btn);
+    gameRow.appendChild(btn);
+  }
+
+  gameSection.appendChild(gameRow);
+  gameSection.appendChild(gameDesc);
+  panel.appendChild(gameSection);
+
   // ---- Slow-tick (Live MCP) section ----
   const liveSection = document.createElement('div');
-  liveSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+  liveSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
 
   const liveToggleRow = document.createElement('div');
   liveToggleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
 
   const liveLabel = document.createElement('div');
-  liveLabel.style.cssText = 'font-weight:bold;font-size:0.85rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;';
+  liveLabel.style.cssText = 'font-weight:bold;font-size:0.85rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
   liveLabel.textContent = 'Live MCP Mode';
   liveToggleRow.appendChild(liveLabel);
 
@@ -145,7 +183,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
   liveSection.appendChild(liveToggleRow);
 
   const liveHint = document.createElement('div');
-  liveHint.style.cssText = 'font-size:0.75rem;color:#8ab;margin-top:6px;display:none;line-height:1.4;';
+  liveHint.style.cssText = 'font-size:0.75rem;color:#668;margin-top:6px;display:none;line-height:1.4;';
   liveHint.textContent = 'Bots marked with a brain icon will pause on collision and wait for your MCP client to choose C or D. Connect via the MCP server.';
   liveSection.appendChild(liveHint);
 
@@ -153,10 +191,10 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
 
   // ---- Zombie section ----
   const zombieSection = document.createElement('div');
-  zombieSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+  zombieSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
 
   const zombieLabel = document.createElement('div');
-  zombieLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;';
+  zombieLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
   zombieLabel.textContent = 'Zombies';
   zombieSection.appendChild(zombieLabel);
 
@@ -334,7 +372,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
 
   // ---- Start button ----
   const footer = document.createElement('div');
-  footer.style.cssText = 'padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+  footer.style.cssText = 'padding:14px 16px;border-top:1px solid #ddd;flex-shrink:0;';
 
   const startBtn = document.createElement('button');
   startBtn.textContent = '▶ Start Arena';
@@ -364,7 +402,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
       };
     }
     closePanel();
-    onStart(roster, config, { ...zombieCounts }, slowTickEnabled ? new Set(liveBotIds) : new Set());
+    onStart(roster, config, { ...zombieCounts }, slowTickEnabled ? new Set(liveBotIds) : new Set(), selectedGameType);
   });
   footer.appendChild(startBtn);
   panel.appendChild(footer);
@@ -412,15 +450,15 @@ function speedBtnStyle(active: boolean): string {
   return (
     'all:unset;cursor:pointer;padding:5px 10px;border-radius:4px;font-size:0.85rem;text-align:center;' +
     (active
-      ? 'background:#2f6b4f;color:#fff;'
-      : 'background:rgba(255,255,255,0.08);color:#aaa;')
+      ? 'background:#5a6abf;color:#fff;'
+      : 'background:rgba(0,0,0,0.06);color:#666;')
   );
 }
 
 function stepperBtnStyle(): string {
   return (
     'all:unset;cursor:pointer;width:24px;height:24px;border-radius:4px;' +
-    'background:rgba(255,255,255,0.1);color:#ddd;font-size:14px;' +
+    'background:rgba(0,0,0,0.08);color:#555;font-size:14px;' +
     'display:inline-flex;align-items:center;justify-content:center;'
   );
 }
@@ -429,8 +467,17 @@ function toggleBtnStyle(on: boolean): string {
   return (
     'all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.8rem;font-weight:bold;' +
     (on
-      ? 'background:#2f6b4f;color:#fff;'
-      : 'background:rgba(255,255,255,0.08);color:#aaa;')
+      ? 'background:#5a6abf;color:#fff;'
+      : 'background:rgba(0,0,0,0.06);color:#888;')
+  );
+}
+
+function gameBtnStyle(active: boolean): string {
+  return (
+    'all:unset;cursor:pointer;padding:6px 10px;border-radius:4px;font-size:0.8rem;' +
+    (active
+      ? 'background:#5a6abf;color:#fff;'
+      : 'background:rgba(0,0,0,0.06);color:#666;')
   );
 }
 
@@ -438,6 +485,6 @@ function createTextBtn(text: string): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.textContent = text;
   btn.style.cssText =
-    'all:unset;cursor:pointer;font-size:0.8rem;color:#7ecfff;text-decoration:underline;';
+    'all:unset;cursor:pointer;font-size:0.8rem;color:#4a7abf;text-decoration:underline;';
   return btn;
 }

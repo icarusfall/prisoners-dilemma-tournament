@@ -46,22 +46,39 @@ export const BOT_SPEC_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   $id: 'https://pdt.local/schemas/bot-spec.json',
   title: 'BotSpec',
-  type: 'object',
-  required: ['name', 'version', 'kind', 'initial', 'rules', 'default'],
-  additionalProperties: false,
-  properties: {
-    name: { type: 'string', minLength: 1, maxLength: 80 },
-    author: { type: 'string', maxLength: 80 },
-    version: { type: 'integer', minimum: 1 },
-    kind: { type: 'string', const: 'dsl' },
-    initial: { $ref: '#/$defs/action' },
-    rules: {
-      type: 'array',
-      maxItems: 256,
-      items: { $ref: '#/$defs/rule' },
+  // Discriminated union on `kind`: 'dsl' or 'code'.
+  oneOf: [
+    {
+      type: 'object',
+      required: ['name', 'version', 'kind', 'initial', 'rules', 'default'],
+      additionalProperties: false,
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 80 },
+        author: { type: 'string', maxLength: 80 },
+        version: { type: 'integer', minimum: 1 },
+        kind: { type: 'string', const: 'dsl' },
+        initial: { $ref: '#/$defs/action' },
+        rules: {
+          type: 'array',
+          maxItems: 256,
+          items: { $ref: '#/$defs/rule' },
+        },
+        default: { $ref: '#/$defs/action' },
+      },
     },
-    default: { $ref: '#/$defs/action' },
-  },
+    {
+      type: 'object',
+      required: ['name', 'version', 'kind', 'code'],
+      additionalProperties: false,
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 80 },
+        author: { type: 'string', maxLength: 80 },
+        version: { type: 'integer', minimum: 1 },
+        kind: { type: 'string', const: 'code' },
+        code: { type: 'string', minLength: 1, maxLength: 10000 },
+      },
+    },
+  ],
 
   $defs: {
     move,

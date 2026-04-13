@@ -42,6 +42,8 @@ import type {
 import { compile } from './interpreter.js';
 import { playMatch } from './match.js';
 import { pairSeed } from './tournament.js';
+import type { GameType, Payoffs } from './scoring.js';
+import { GAME_TYPES } from './scoring.js';
 
 export interface EvolutionaryEntry {
   /** Stable identifier; appears in `population`, `fitness`, leaderboards. */
@@ -70,6 +72,10 @@ export interface RunEvolutionaryOptions {
    * (set to 0) at the end of the generation. Default 0.01.
    */
   extinctionThreshold?: number;
+  /** If true, each match's round count varies by ±20% so bots can't predict the last round. */
+  noisyEnding?: boolean;
+  /** Game type — determines the payoff matrix. Default: prisoners-dilemma. */
+  gameType?: GameType;
 }
 
 const DEFAULT_EXTINCTION_THRESHOLD = 0.01;
@@ -123,6 +129,9 @@ export function runEvolutionaryTournament(
   const preserveTotal = options.preserveTotal ?? true;
   const extinctionThreshold =
     options.extinctionThreshold ?? DEFAULT_EXTINCTION_THRESHOLD;
+  const noisyEnding = options.noisyEnding ?? false;
+  const gameType: GameType = options.gameType ?? 'prisoners-dilemma';
+  const payoffs: Payoffs = GAME_TYPES[gameType].payoffs;
 
   const k = entries.length;
   const decideFns = entries.map((e) => compile(e.spec));
@@ -154,7 +163,7 @@ export function runEvolutionaryTournament(
           spec: entries[j]!.spec,
           decide: decideFns[j]!,
         };
-        const result = playMatch(a, b, roundsPerMatch, ms);
+        const result = playMatch(a, b, roundsPerMatch, ms, { noisyEnding, payoffs });
         if (i === j) {
           // Self-play: average both halves so a stochastic strategy
           // doesn't asymmetrically reward whichever side rolled luckier.
@@ -239,6 +248,8 @@ export function runEvolutionaryTournament(
     extinctEver: Array.from(extinctEver),
     seed,
     roundsPerMatch,
+    noisyEnding,
+    gameType,
   };
 }
 

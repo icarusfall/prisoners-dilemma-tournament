@@ -6,8 +6,8 @@
 // sprites, far enough that collisions happen naturally.
 
 export const COLEMAN_STREET = {
-  /** Mapbox style — dark theme so bot sprites and coloured flashes pop. */
-  style: 'mapbox://styles/mapbox/dark-v11',
+  /** Mapbox style — light pastel theme. */
+  style: 'mapbox://styles/mapbox/light-v11',
 
   center: [-0.09005, 51.51555] as [number, number],
   zoom: 17.5,

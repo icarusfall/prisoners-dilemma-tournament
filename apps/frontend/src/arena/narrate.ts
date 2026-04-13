@@ -28,6 +28,11 @@ export function narrateDecision(
 ): string {
   const verb = move === 'C' ? 'cooperated' : 'defected';
 
+  // Code bots: we can't trace the decision through rules.
+  if (spec.kind === 'code') {
+    return `${botName} ${verb} (code bot).`;
+  }
+
   // Round 0: initial action.
   if (view.round === 0) {
     return `${botName} ${verb} (opening move).`;

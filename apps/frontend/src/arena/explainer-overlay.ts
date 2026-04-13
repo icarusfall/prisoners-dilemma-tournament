@@ -15,27 +15,27 @@ export function createExplainerOverlay(): ExplainerOverlay {
   btn.textContent = '? What am I looking at?';
   btn.style.cssText =
     'position:absolute;top:12px;right:12px;z-index:15;' +
-    'padding:8px 14px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;' +
-    'background:rgba(0,0,0,0.7);color:#eee;font:13px/1 system-ui,sans-serif;' +
-    'cursor:pointer;backdrop-filter:blur(4px);transition:background 0.15s;';
-  btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(50,50,80,0.85)'; });
-  btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(0,0,0,0.7)'; });
+    'padding:8px 14px;border:1px solid #ccc;border-radius:6px;' +
+    'background:rgba(255,255,255,0.9);color:#333;font:13px/1 system-ui,sans-serif;' +
+    'cursor:pointer;backdrop-filter:blur(4px);transition:background 0.15s;box-shadow:0 1px 4px rgba(0,0,0,0.1);';
+  btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(230,230,240,0.95)'; });
+  btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(255,255,255,0.9)'; });
 
   // ---- Overlay panel ----
   const overlay = document.createElement('div');
   overlay.style.cssText =
     'position:absolute;inset:0;z-index:25;display:none;' +
-    'background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);' +
+    'background:rgba(255,255,255,0.92);backdrop-filter:blur(6px);' +
     'overflow-y:auto;padding:48px 32px 32px;' +
-    'color:#ddd;font:14px/1.7 system-ui,sans-serif;';
+    'color:#333;font:14px/1.7 system-ui,sans-serif;';
 
   const close = document.createElement('button');
   close.textContent = '✕';
   close.style.cssText =
     'position:absolute;top:14px;right:18px;all:unset;cursor:pointer;' +
-    'font-size:22px;color:#aaa;padding:4px 8px;';
-  close.addEventListener('mouseenter', () => { close.style.color = '#fff'; });
-  close.addEventListener('mouseleave', () => { close.style.color = '#aaa'; });
+    'font-size:22px;color:#999;padding:4px 8px;';
+  close.addEventListener('mouseenter', () => { close.style.color = '#333'; });
+  close.addEventListener('mouseleave', () => { close.style.color = '#999'; });
   overlay.appendChild(close);
 
   const content = document.createElement('div');
@@ -67,8 +67,8 @@ export function createExplainerOverlay(): ExplainerOverlay {
   // "Go deeper" link navigates to the How It Works view.
   const goDeeper = overlay.querySelector('#explainer-go-deeper') as HTMLAnchorElement | null;
   if (goDeeper) {
-    goDeeper.addEventListener('mouseenter', () => { goDeeper.style.background = '#3a4a88'; });
-    goDeeper.addEventListener('mouseleave', () => { goDeeper.style.background = '#2f3b6e'; });
+    goDeeper.addEventListener('mouseenter', () => { goDeeper.style.background = '#4a5aaf'; });
+    goDeeper.addEventListener('mouseleave', () => { goDeeper.style.background = '#5a6abf'; });
     goDeeper.addEventListener('click', (e) => {
       e.preventDefault();
       closeOverlay();
@@ -99,12 +99,12 @@ export function createExplainerOverlay(): ExplainerOverlay {
 // ---------------------------------------------------------------------------
 
 const EXPLAINER_HTML = `
-<h2 style="margin:0 0 8px;font-size:1.5rem;color:#fff;">What am I looking at?</h2>
-<p style="color:#aaa;margin:0 0 24px;font-size:0.9rem;">
+<h2 style="margin:0 0 8px;font-size:1.5rem;color:#222;">What am I looking at?</h2>
+<p style="color:#777;margin:0 0 24px;font-size:0.9rem;">
   A quick guide to the arena — close this and watch it all make sense.
 </p>
 
-<h3 style="color:#7ecfff;margin:20px 0 8px;font-size:1.05rem;">🎮 The setup</h3>
+<h3 style="color:#4a7abf;margin:20px 0 8px;font-size:1.05rem;">🎮 The setup</h3>
 <p>
   You're watching <strong>bots</strong> walk around a map of
   <em>1 Coleman Street</em> (our London office). Each bot follows a
@@ -112,7 +112,7 @@ const EXPLAINER_HTML = `
   <em>Prisoner's Dilemma</em>, one of the most famous games in maths.
 </p>
 
-<h3 style="color:#7ecfff;margin:20px 0 8px;font-size:1.05rem;">🤝 When two bots meet</h3>
+<h3 style="color:#4a7abf;margin:20px 0 8px;font-size:1.05rem;">🤝 When two bots meet</h3>
 <p>
   When two sprites bump into each other they play a round: each secretly
   picks <strong style="color:#6c6;">Cooperate</strong> or
@@ -120,10 +120,10 @@ const EXPLAINER_HTML = `
 </p>
 <table style="border-collapse:collapse;margin:12px 0;width:100%;font-size:0.9rem;">
   <thead>
-    <tr style="border-bottom:1px solid #555;">
-      <th style="text-align:left;padding:6px 10px;color:#aaa;">Outcome</th>
-      <th style="text-align:center;padding:6px 10px;color:#aaa;">You</th>
-      <th style="text-align:center;padding:6px 10px;color:#aaa;">Them</th>
+    <tr style="border-bottom:1px solid #ddd;">
+      <th style="text-align:left;padding:6px 10px;color:#777;">Outcome</th>
+      <th style="text-align:center;padding:6px 10px;color:#777;">You</th>
+      <th style="text-align:center;padding:6px 10px;color:#777;">Them</th>
     </tr>
   </thead>
   <tbody>
@@ -142,7 +142,7 @@ const EXPLAINER_HTML = `
   </tbody>
 </table>
 
-<h3 style="color:#7ecfff;margin:20px 0 8px;font-size:1.05rem;">👀 What the colours mean</h3>
+<h3 style="color:#4a7abf;margin:20px 0 8px;font-size:1.05rem;">👀 What the colours mean</h3>
 <p>
   After an interaction a <strong>line</strong> briefly connects the two bots:
 </p>
@@ -157,7 +157,7 @@ const EXPLAINER_HTML = `
   </li>
 </ul>
 
-<h3 style="color:#7ecfff;margin:20px 0 8px;font-size:1.05rem;">🕵️ Dig deeper</h3>
+<h3 style="color:#4a7abf;margin:20px 0 8px;font-size:1.05rem;">🕵️ Dig deeper</h3>
 <ul style="padding-left:20px;margin:8px 0;">
   <li><strong>Click a bot</strong> to open the side panel — see its strategy, score, and match history.</li>
   <li><strong>Hover an interaction line</strong> to read why each bot made its choice.</li>
@@ -165,7 +165,7 @@ const EXPLAINER_HTML = `
   <li><strong>Check the scoreboard</strong> in the top-left to see who's winning.</li>
 </ul>
 
-<h3 style="color:#7ecfff;margin:20px 0 8px;font-size:1.05rem;">🧠 The big idea</h3>
+<h3 style="color:#4a7abf;margin:20px 0 8px;font-size:1.05rem;">🧠 The big idea</h3>
 <p>
   Defecting always beats cooperating in a <em>single</em> round — but when
   the game repeats, strategies that build trust (like <strong>Tit for Tat</strong>)
@@ -173,13 +173,13 @@ const EXPLAINER_HTML = `
   so fascinating: <em>nice guys don't always finish last</em>.
 </p>
 
-<div style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1);">
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid #ddd;">
   <a href="#" id="explainer-go-deeper" style="display:inline-block;padding:8px 16px;
-     background:#2f3b6e;color:#fff;border-radius:6px;text-decoration:none;font-size:0.9rem;
+     background:#5a6abf;color:#fff;border-radius:6px;text-decoration:none;font-size:0.9rem;
      transition:background 0.15s;">
     Read the full How It Works guide &rarr;
   </a>
-  <p style="margin-top:10px;color:#888;font-size:0.85rem;">
+  <p style="margin-top:10px;color:#999;font-size:0.85rem;">
     Built by the L&amp;G AI Club
   </p>
 </div>

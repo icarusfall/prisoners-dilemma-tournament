@@ -1,4 +1,4 @@
-// Eight classical preset strategies — the canonical opening library.
+// Ten classical preset strategies — the canonical opening library.
 //
 // These are the strategies that:
 //   1. The `classifyOpponent` predicate (see interpreter.ts) recognises
@@ -23,8 +23,10 @@ import { GRIM } from './grim.js';
 import { PAVLOV } from './pavlov.js';
 import { GENEROUS_TFT } from './generous-tft.js';
 import { RANDOM } from './random.js';
+import { JOSS } from './joss.js';
+import { PROBER } from './prober.js';
 
-export { ALLC, ALLD, TFT, TF2T, GRIM, PAVLOV, GENEROUS_TFT, RANDOM };
+export { ALLC, ALLD, TFT, TF2T, GRIM, PAVLOV, GENEROUS_TFT, RANDOM, JOSS, PROBER };
 
 /**
  * A preset's stable identifier. Matches the `ClassifierLabel` set
@@ -96,6 +98,18 @@ export const PRESETS: readonly Preset[] = [
     name: 'Random',
     description: 'Plays C or D with equal probability every round.',
     spec: RANDOM,
+  },
+  {
+    id: 'JOSS',
+    name: 'Joss',
+    description: 'Sneaky TFT — cooperates like TFT but randomly defects 10% of the time.',
+    spec: JOSS,
+  },
+  {
+    id: 'PROBER',
+    name: 'Prober',
+    description: 'Tests with early defections; exploits pushovers, plays TFT against retaliators.',
+    spec: PROBER,
   },
 ];
 

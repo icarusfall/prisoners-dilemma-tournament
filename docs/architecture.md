@@ -1,6 +1,6 @@
 # Prisoner's Dilemma Tournament — Architecture
 
-Draft v0.8 · 2026-04-12
+Draft v1.0 · 2026-04-13
 
 ## 1. Vision
 
@@ -739,27 +739,29 @@ Rough order of subsequent phases, each independently shippable:
 - **Phase 5 — MCP server.** *Done.* Tools (§7.1): submit_bot, validate_bot_spec, list_my_bots, update_bot, delete_bot, run_tournament, get_leaderboard, get_match_history. Resources (§7.2): pd://docs/*, pd://schema/bot-spec.json, pd://presets/*, pd://scoring — auto-served from `docs/explainers/` and engine presets. Prompts (§7.3): start_building_a_bot, analyse_my_bot_performance. Player creation API + Connect tab in frontend. Streamable HTTP transport at `/mcp`.
 - **Phase 6 — Zombies.** *Done.* Shambler and infected variants, conversion mechanics, arena-mode only. See §9 and progress notes below.
 - **Phase 7 — Live MCP decisions (C3).** *Done.* Slow-tick arena mode with "Live MCP Mode" toggle in setup panel, per-bot brain-icon live marking, in-memory pending-decision store on backend, REST bridge (`POST/GET /api/arena/pending`, `GET /api/arena/decision/:id`), three new MCP tools (get_pending_decision, submit_decision, list_pending_decisions), 30s timeout with BotSpec fallback, orange waiting visual state on the map.
-- **Phase 8 — Code-tier bots.** `BotSpec.kind = "code"` path with Web Worker / `isolated-vm` sandbox, CPU/time budget, deterministic RNG injection.
+- **Phase 8 — Code-tier bots.** *Done.* `BotSpec` discriminated union (`DslBotSpec | CodeBotSpec` on `kind` field). Code bots provide a `decide(view)` function as a string, compiled via `new Function('view', code)` with try/catch safety (errors default to C). JSON Schema updated to `oneOf` for two spec shapes. Bot builder gains "Write Code" tab with API reference, local test runner, and syntax check. Arena aesthetics overhauled: light-v11 Mapbox style, pastel theme throughout (nav, scoreboard, caption bar, setup panel, side panel, explainer overlay), uniform bot colour (#7ab8e0) with flash states (green cooperate, red defect, dark green zombie, orange waiting), wider interaction lines (width 8).
 
-Phases 2 and 3 are the ones that turn "it works" into "colleagues can actually use it". Phases 4 and 5 are what unlock the actual AI Club challenge. 6–8 are the fun.
+- **Phase 9 — Joss, Prober, noisy endings, alternative game types.** *Done.* Two new "occasional defector" presets (Joss: sneaky TFT with 10% random defection; Prober: tests with early defections then falls back to TFT). Noisy ending option (`noisyEnding: boolean`) varies match length ±20% so bots can't predict the last round. Alternative game types: `scoreRound()` parameterised by `Payoffs` object, four preset matrices (Prisoner's Dilemma, Chicken/Hawk-Dove, Stag Hunt, Deadlock) with `GameType` selector in setup panel, tournament API, and MCP server. 10 presets total, 132 tests passing.
+
+Phases 2 and 3 are the ones that turn "it works" into "colleagues can actually use it". Phases 4 and 5 are what unlock the actual AI Club challenge. 6–9 are the fun.
 
 ## 15. Deferred decisions and open questions
 
 Things I've deliberately punted on and want to revisit later, not block on now:
 
-- **Code-tier bots** — §4.5. Sandboxed `decide(view)` function for strategies the DSL can't express (Bayesian inference proper, MCTS, neural nets). `BotSpec.kind` discriminator is in the v1 schema but only `"dsl"` is accepted until a later phase. Sandbox choice: Web Worker (browser) + `isolated-vm` (Node).
+- ~~**Code-tier bots**~~ — *Done (Phase 8).* `BotSpec.kind = "code"` accepted and functional. Sandbox is lightweight (`new Function` with try/catch); full Web Worker / `isolated-vm` isolation deferred unless abuse becomes a concern.
 - **Arena fairness for the secondary leaderboard** — collisions are random, so the arena's own ranking is luck-heavy. Acceptable because it's not authoritative, but we might want a "normalised by matches played" column so the arena leaderboard is at least informative.
 - **Bot visibility of opponent identity** — `BotView` exposes `opponentInstanceId`. Should bots be able to recognise an opponent across matches (i.e. build reputation)? The classic IPD answer is no — each match is a fresh dyad. v1 ships with no cross-match memory.
 - **Depletion / conman mode** — still on the table as a future mode toggle. No engine change needed up front; the scoring module is the only thing that would be touched.
 - **Evolutionary variants** — per-individual mode (stochastic, extinction cascades), spatial evolution on the Mapbox arena itself (populations per neighbourhood), noise in replicator dynamics. All future fun; v1 is the strategy-distribution version only.
 - **Compilation retry budget** — how many times does the NL→JSON flow re-prompt Claude on validation failure? Leaning: 1 retry, then error. Tunable via env var.
 - ~~**C3 live-decision API surface**~~ — *Done (Phase 7).* Slow-tick arena mode, pending-decision polling, 30s timeout with BotSpec fallback.
-- **Alternative game types (Chicken, Stag Hunt, Deadlock, etc.)** — The payoff matrix is well-isolated in `packages/engine/src/scoring.ts` (`PAYOFFS` constant). All four classic 2-player 2-move variants just reorder T/R/P/S values. Option 1 (different payoffs, same C/D moves) is ~2-3 hours: parameterize `scoreRound()` to accept a payoffs object, add a `gameType` selector to tournament/arena setup, define preset matrices. The existing BotSpec DSL works unchanged — bots still choose C or D, only the strategic meaning shifts. Option 2 (renamed moves, e.g. Hawk/Dove) adds a display-name layer (~1 day). Option 3 (3+ moves, e.g. RPS) would require DSL/schema redesign — not planned. Leaning: Option 1 as a quick win, possibly bundled with a "game lab" UI tab.
+- ~~**Alternative game types (Chicken, Stag Hunt, Deadlock, etc.)**~~ — *Done (Phase 9).* `scoreRound()` parameterised with `Payoffs` object, `GameType` union type, `GAME_TYPES` preset map. Threaded through `playMatch`, `runTournament`, `runEvolutionaryTournament`, arena simulation, backend API, and MCP server. Game type selector in arena setup panel. Option 2 (renamed moves e.g. Hawk/Dove) and Option 3 (3+ moves e.g. RPS) remain deferred.
 - **Zombie origin** — does a zombie spawn from a bot that voluntarily "went zombie", or appear ex nihilo? Cosmetic but affects the UX. Leaning: manual add-button in the arena UI, zombie appears at a random free location.
 - **Author-defined classifiers** — the built-in `classifyOpponent()` is frozen to presets (§4.3). A future nice-to-have: let authors *build their own* classifiers as standalone `BotSpec`-fragments and call them by name from another bot. Not v1 — just flagged so we remember the idea.
-- **Arena map aesthetics** — the dark-v11 Mapbox style is functional but could be more colourful/inviting. Options: custom Mapbox Studio style with highlighted buildings, coloured zones, or overlays (e.g. department labels, meeting-room zones). Would make the arena feel more like a real office rather than a dark void.
+- ~~**Arena map aesthetics**~~ — *Done (Phase 8).* Switched to light-v11 Mapbox style, full pastel theme conversion across all UI components.
 - **Arena obstacles / pathfinding** — currently bots wander freely within bounds. Adding obstacles (building walls, furniture, corridors) would make movement more interesting and create natural chokepoints where bots collide more often. Could use the Mapbox building footprints as collision geometry, or define hand-placed walkable zones. Would also make the map feel more alive. Trade-off: more complex movement code (simple steering vs proper pathfinding).
 
 ---
 
-**Status**: v0.7 design signed off; **Phases 1–7 complete**. Test count: 106 passing across 9 files. Next up: Phase 8 (Code-tier bots) or alternative game types.
+**Status**: v1.0 design signed off; **Phases 1–9 complete**. Test count: 132 passing across 9 files. Next up: arena map enhancements (obstacles, pathfinding, visual theming) or further refinements.

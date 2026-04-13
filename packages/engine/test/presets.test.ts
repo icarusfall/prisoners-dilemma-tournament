@@ -12,6 +12,8 @@ import {
   PAVLOV,
   GENEROUS_TFT,
   RANDOM,
+  JOSS,
+  PROBER,
   type PresetId,
 } from '../src/presets/index.js';
 import type { BotInstance, BotSpec } from '../src/types.js';
@@ -35,14 +37,14 @@ function moves(spec: BotSpec, opponent: BotSpec, rounds: number, seed = 1) {
 // ---------------------------------------------------------------------------
 
 describe('PRESETS table', () => {
-  it('contains exactly 8 entries', () => {
-    expect(PRESETS).toHaveLength(8);
+  it('contains exactly 10 entries', () => {
+    expect(PRESETS).toHaveLength(10);
   });
 
   it('has unique ids matching the ClassifierLabel set', () => {
     const ids = PRESETS.map((p) => p.id).sort();
     expect(ids).toEqual(
-      ['ALLC', 'ALLD', 'GENEROUS_TFT', 'GRIM', 'PAVLOV', 'RANDOM', 'TF2T', 'TFT'].sort(),
+      ['ALLC', 'ALLD', 'GENEROUS_TFT', 'GRIM', 'JOSS', 'PAVLOV', 'PROBER', 'RANDOM', 'TF2T', 'TFT'].sort(),
     );
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -199,6 +201,52 @@ describe('GENEROUS_TFT behaviour', () => {
   it('cooperates forever against ALLC', () => {
     const r = moves(GENEROUS_TFT, ALLC, 30);
     expect(r.rounds.every((rd) => rd.moveA === 'C')).toBe(true);
+  });
+});
+
+describe('JOSS behaviour', () => {
+  it('cooperates first', () => {
+    const r = moves(JOSS, ALLC, 1);
+    expect(r.rounds[0]!.moveA).toBe('C');
+  });
+
+  it('retaliates against ALLD like TFT', () => {
+    const r = moves(JOSS, ALLD, 5);
+    // Round 0: C. Rounds 1+: D (opponent defected, so always retaliate).
+    expect(r.rounds.map((rd) => rd.moveA)).toEqual(['C', 'D', 'D', 'D', 'D']);
+  });
+
+  it('mostly cooperates against ALLC but sneaks in ~10% defections', () => {
+    const r = moves(JOSS, ALLC, 200, 42);
+    const ds = r.rounds.filter((rd) => rd.moveA === 'D').length;
+    // ~10% of 200 = ~20 defections. Allow a wide band [5, 50].
+    expect(ds).toBeGreaterThan(5);
+    expect(ds).toBeLessThan(50);
+  });
+});
+
+describe('PROBER behaviour', () => {
+  it('cooperates on round 0, defects on rounds 1 and 2', () => {
+    const r = moves(PROBER, ALLC, 3);
+    expect(r.rounds.map((rd) => rd.moveA)).toEqual(['C', 'D', 'D']);
+  });
+
+  it('exploits an always-cooperator after the probe', () => {
+    const r = moves(PROBER, ALLC, 10);
+    // Round 0: C, rounds 1-2: D (probe), rounds 3+: D (exploit — ALLC never retaliated)
+    const movesAfterProbe = r.rounds.slice(3).map((rd) => rd.moveA);
+    expect(movesAfterProbe.every((m) => m === 'D')).toBe(true);
+  });
+
+  it('falls back to TFT-like play against a retaliator (not permanent DD)', () => {
+    const r = moves(PROBER, TFT, 20);
+    // After the probe (rounds 1-2) and peace offering (round 3),
+    // Prober and TFT oscillate — each cooperates roughly half the time.
+    // The key: it's NOT permanent mutual defection (which GRIM would cause).
+    const laterMoves = r.rounds.slice(4).map((rd) => rd.moveA);
+    const coopCount = laterMoves.filter((m) => m === 'C').length;
+    expect(coopCount).toBeGreaterThan(0); // cooperates at least sometimes
+    expect(coopCount).toBeLessThan(laterMoves.length); // but not always
   });
 });
 

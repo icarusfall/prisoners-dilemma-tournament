@@ -98,6 +98,8 @@ export interface TournamentResult {
   seed: number;
   roundsPerMatch: number;
   includeSelfPlay: boolean;
+  noisyEnding: boolean;
+  gameType: string;
 }
 
 /** A single generation of an evolutionary tournament. */
@@ -122,6 +124,8 @@ export interface EvolutionaryResult {
   extinctEver: string[];
   seed: number;
   roundsPerMatch: number;
+  noisyEnding: boolean;
+  gameType: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +166,8 @@ export type ClassifierLabel =
   | 'GRIM'
   | 'PAVLOV'
   | 'GENEROUS_TFT'
+  | 'JOSS'
+  | 'PROBER'
   | 'UNKNOWN';
 
 /** A condition in the `when` clause of a rule. */
@@ -226,13 +232,9 @@ export interface Rule {
 }
 
 /**
- * The persistent JSON shape of a bot.
- *
- * `kind: 'dsl'` is the only value accepted in v1. The discriminator is
- * present so a future code-tier (architecture §4.5, deferred) can be
- * added without a schema migration.
+ * A DSL bot — the original declarative rule-list format.
  */
-export interface BotSpec {
+export interface DslBotSpec {
   name: string;
   author?: string;
   /** Spec-format version. Bumped if the DSL grammar changes. */
@@ -244,3 +246,28 @@ export interface BotSpec {
   /** Played when no rule's `when` matches the current round. */
   default: Action;
 }
+
+/**
+ * A code bot — a raw JavaScript function body that receives a `BotView`
+ * and must return `'C'` or `'D'`.
+ *
+ * The function body is compiled via `new Function('view', code)` and
+ * wrapped in a safety harness that catches errors and validates the
+ * return value. The `view` parameter is the same `BotView` that DSL
+ * bots see, including the deterministic `view.rng()`.
+ *
+ * Example code: `"if (view.round === 0) return 'C';\nreturn view.history.theirMoves[view.round - 1] === 'C' ? 'C' : 'D';"`
+ */
+export interface CodeBotSpec {
+  name: string;
+  author?: string;
+  version: number;
+  kind: 'code';
+  /** JavaScript function body. Max 10 000 characters. */
+  code: string;
+}
+
+/**
+ * The persistent JSON shape of a bot — a discriminated union on `kind`.
+ */
+export type BotSpec = DslBotSpec | CodeBotSpec;

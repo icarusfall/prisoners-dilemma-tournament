@@ -20,12 +20,12 @@ if (!app) {
 // ---- Full-viewport layout ----
 document.body.style.margin = '0';
 document.body.style.overflow = 'hidden';
-document.body.style.background = '#111';
+document.body.style.background = '#f0f0f5';
 
 app.innerHTML = `
   <div id="shell" style="display:flex;flex-direction:column;height:100vh;font-family:system-ui,sans-serif;">
     <nav id="nav" style="display:flex;align-items:center;justify-content:space-between;
-                         padding:6px 16px;background:#1a1a2e;color:#ddd;flex-shrink:0;z-index:20;">
+                         padding:6px 16px;background:#e8e8f0;color:#333;flex-shrink:0;z-index:20;border-bottom:1px solid #d0d0da;">
       <div style="display:flex;align-items:center;gap:16px;">
         <span style="font-weight:bold;font-size:1rem;">Prisoner's Dilemma</span>
         <button id="tab-arena" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Arena</button>
@@ -34,7 +34,7 @@ app.innerHTML = `
         <button id="tab-connect" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Connect</button>
         <button id="tab-howit" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">How It Works</button>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;font-size:0.8rem;color:#888;">
+      <div style="display:flex;align-items:center;gap:12px;font-size:0.8rem;color:#999;">
         <span>Engine v${ENGINE_VERSION}</span>
         <span id="health-badge">checking…</span>
       </div>
@@ -52,8 +52,8 @@ const viewEl = document.getElementById('view')!;
 const healthEl = document.getElementById('health-badge')!;
 
 // ---- Tab styling ----
-const ACTIVE_TAB_STYLE = 'background:#2f3b6e;color:#fff;';
-const INACTIVE_TAB_STYLE = 'background:transparent;color:#999;';
+const ACTIVE_TAB_STYLE = 'background:#5a6abf;color:#fff;';
+const INACTIVE_TAB_STYLE = 'background:transparent;color:#666;';
 
 function setActiveTab(tab: View): void {
   const tabs: Record<View, HTMLButtonElement> = { arena: tabArena, tournament: tabTournament, builder: tabBuilder, connect: tabConnect, howit: tabHowIt };

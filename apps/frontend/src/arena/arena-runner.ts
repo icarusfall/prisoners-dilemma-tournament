@@ -37,14 +37,14 @@ import {
   type ArenaEvent,
   type PairState,
 } from './types.js';
-import { mulberry32, scoreRound, type Move } from '@pdt/engine';
+import { mulberry32, scoreRound, GAME_TYPES, type GameType, type Payoffs, type Move } from '@pdt/engine';
 import { createSidePanel, type SidePanel } from './side-panel.js';
 import { createNarrator, type Narrator } from './narrator.js';
 import { createExplainerOverlay, type ExplainerOverlay } from './explainer-overlay.js';
 import { createSetupPanel, type SetupPanel, type ZombieSetup } from './setup-panel.js';
 
-// Default demo roster: all eight classical presets.
-const DEMO_BOT_IDS = ['tft', 'alld', 'grim', 'random', 'allc', 'tf2t', 'pavlov', 'generous_tft'];
+// Default demo roster: all ten classical presets.
+const DEMO_BOT_IDS = ['tft', 'alld', 'grim', 'random', 'allc', 'tf2t', 'pavlov', 'generous_tft', 'joss', 'prober'];
 
 // Track active interaction lines for timed removal.
 interface ActiveLine {
@@ -73,16 +73,17 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   const captionBar = document.createElement('div');
   captionBar.style.cssText =
     'position:absolute;bottom:0;left:0;right:0;padding:8px 16px;' +
-    'background:rgba(0,0,0,0.7);color:#ddd;font:13px/1.4 monospace;' +
-    'pointer-events:none;z-index:10;min-height:24px;';
+    'background:rgba(255,255,255,0.85);color:#333;font:13px/1.4 monospace;' +
+    'pointer-events:none;z-index:10;min-height:24px;backdrop-filter:blur(4px);border-top:1px solid #ddd;';
   wrapper.appendChild(captionBar);
 
   // Scoreboard overlay.
   const scoreboard = document.createElement('div');
   scoreboard.style.cssText =
     'position:absolute;top:12px;left:12px;padding:10px 14px;' +
-    'background:rgba(0,0,0,0.75);color:#ddd;font:12px/1.5 monospace;' +
-    'border-radius:6px;z-index:10;min-width:140px;pointer-events:none;';
+    'background:rgba(255,255,255,0.9);color:#333;font:12px/1.5 monospace;' +
+    'border-radius:6px;z-index:10;min-width:140px;pointer-events:none;' +
+    'box-shadow:0 1px 6px rgba(0,0,0,0.1);border:1px solid #ddd;';
   wrapper.appendChild(scoreboard);
 
   // "What am I looking at?" explainer overlay.
@@ -122,6 +123,8 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let narrator: Narrator;
   let config: ArenaConfig;
   let rng: () => number;
+  let currentGameType: GameType = 'prisoners-dilemma';
+  let currentPayoffs: Payoffs = GAME_TYPES['prisoners-dilemma'].payoffs;
   let animFrameId = 0;
   let loopRunning = false;
   let liveBotIds = new Set<string>();
@@ -326,7 +329,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       if (idx >= 0) livePendings.splice(idx, 1);
 
       // Score and record.
-      const result = scoreRound(moveA!, moveB!);
+      const result = scoreRound(moveA!, moveB!, currentPayoffs);
       a.score += result.scoreA;
       b.score += result.scoreB;
 
@@ -472,7 +475,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
 
       // Run normal tick (which will also re-detect and handle the
       // normal collisions — but we already consumed the live ones).
-      const result: TickResult = tick(arenaBots, pairs, dt, now, [...COLEMAN_STREET.bounds], rng, config);
+      const result: TickResult = tick(arenaBots, pairs, dt, now, [...COLEMAN_STREET.bounds], rng, config, currentPayoffs);
       processEvents(result.events, now);
     } else {
       const result: TickResult = tick(
@@ -483,6 +486,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
         [...COLEMAN_STREET.bounds],
         rng,
         config,
+        currentPayoffs,
       );
       processEvents(result.events, now);
     }
@@ -508,7 +512,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   // ---- Start / restart simulation ----
-  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }, newLiveBotIds: Set<string> = new Set()): void {
+  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }, newLiveBotIds: Set<string> = new Set(), gameType: GameType = 'prisoners-dilemma'): void {
     // Stop existing loop.
     loopRunning = false;
     cancelAnimationFrame(animFrameId);
@@ -528,6 +532,8 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     captionLines.length = 0;
 
     // Reset simulation state.
+    currentGameType = gameType;
+    currentPayoffs = GAME_TYPES[gameType].payoffs;
     config = { ...newConfig };
     const seed = Date.now() & 0x7fffffff;
     rng = mulberry32(seed);
@@ -579,12 +585,13 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let setupPanel: SetupPanel = createSetupPanel({
     allBots,
     activeBotIds: demoBots.map((b) => b.id),
-    onStart(roster, newConfig, zombies, newLiveBotIds) {
+    onStart(roster, newConfig, zombies, newLiveBotIds, gameType) {
       if (roster.length < 2) return;
       const zombieTotal = zombies.shamblers + zombies.infected;
       const zombieMsg = zombieTotal > 0 ? ` with ${zombieTotal} zombie${zombieTotal > 1 ? 's' : ''}` : '';
       const liveMsg = newLiveBotIds.size > 0 ? ` (${newLiveBotIds.size} live)` : '';
-      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}${liveMsg}...`, zombies, newLiveBotIds);
+      const gameMsg = gameType !== 'prisoners-dilemma' ? ` [${GAME_TYPES[gameType].label}]` : '';
+      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}${liveMsg}${gameMsg}...`, zombies, newLiveBotIds, gameType);
     },
   });
   wrapper.appendChild(setupPanel.el);

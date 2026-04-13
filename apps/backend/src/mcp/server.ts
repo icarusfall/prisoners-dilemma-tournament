@@ -283,8 +283,10 @@ export function createMcpServer(sql: Sql): McpServer {
       mode: z.enum(['round-robin', 'evolutionary']).default('round-robin'),
       rounds_per_match: z.number().int().min(1).max(10000).default(200),
       generations: z.number().int().min(1).max(1000).optional().describe('For evolutionary mode only'),
+      noisy_ending: z.boolean().default(false).describe('If true, each match\'s round count varies by ±20% so bots can\'t predict the last round'),
+      game_type: z.enum(['prisoners-dilemma', 'chicken', 'stag-hunt', 'deadlock']).default('prisoners-dilemma').describe('Game type — determines the payoff matrix'),
     },
-    async ({ instances, mode, rounds_per_match, generations }) => {
+    async ({ instances, mode, rounds_per_match, generations, noisy_ending, game_type }) => {
       // Fetch bot specs
       const botIds = [...new Set(instances.map((i) => i.bot_id))];
       const botRows = await sql<BotRow[]>`
@@ -327,6 +329,7 @@ export function createMcpServer(sql: Sql): McpServer {
           rounds_per_match,
           generations ?? 50,
           seed,
+          { noisyEnding: noisy_ending, gameType: game_type },
         );
         // Return summary, not full result (too large)
         const lastGen = result.generations[result.generations.length - 1];
@@ -346,7 +349,10 @@ export function createMcpServer(sql: Sql): McpServer {
       }
 
       // Round-robin
-      const result = runTournament(botInstances, rounds_per_match, seed);
+      const result = runTournament(botInstances, rounds_per_match, seed, {
+        noisyEnding: noisy_ending,
+        gameType: game_type,
+      });
       return {
         content: [{
           type: 'text',

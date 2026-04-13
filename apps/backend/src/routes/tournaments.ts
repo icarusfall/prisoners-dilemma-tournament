@@ -35,6 +35,8 @@ import {
   type MatchResult,
   type RoundResult,
   type TournamentResult,
+  GAME_TYPES,
+  type GameType,
 } from '@pdt/engine';
 import { generateBotId } from '../util/ids.js';
 
@@ -60,6 +62,8 @@ interface PostBody {
   mode?: string;
   generations?: number;
   seed?: number;
+  noisyEnding?: boolean;
+  gameType?: string;
 }
 
 interface ValidatedBody {
@@ -69,6 +73,8 @@ interface ValidatedBody {
   mode: 'round-robin' | 'evolutionary';
   generations: number | undefined;
   seed: number;
+  noisyEnding: boolean;
+  gameType: GameType;
 }
 
 // Sane Phase-1 bounds. The engine is fast — these caps mostly exist so
@@ -108,7 +114,7 @@ function validatePostBody(body: PostBody): ValidationOk | ValidationError {
     };
   }
 
-  const { instances, roundsPerMatch, mode, generations, seed, name } = body;
+  const { instances, roundsPerMatch, mode, generations, seed, name, noisyEnding, gameType } = body;
 
   if (mode !== 'round-robin' && mode !== 'evolutionary') {
     return {
@@ -253,6 +259,11 @@ function validatePostBody(body: PostBody): ValidationOk | ValidationError {
     if (trimmed.length > 0) validatedName = trimmed;
   }
 
+  const validGameTypes = Object.keys(GAME_TYPES);
+  const validatedGameType: GameType = (gameType && validGameTypes.includes(gameType))
+    ? gameType as GameType
+    : 'prisoners-dilemma';
+
   return {
     ok: true,
     value: {
@@ -262,6 +273,8 @@ function validatePostBody(body: PostBody): ValidationOk | ValidationError {
       mode,
       generations: validatedGenerations,
       seed: validatedSeed,
+      noisyEnding: !!noisyEnding,
+      gameType: validatedGameType,
     },
   };
 }
@@ -321,7 +334,10 @@ export const tournamentsRoutes: FastifyPluginAsync<TournamentsRouteOptions> = as
 
       let result: TournamentResult;
       try {
-        result = runTournament(instances, body.roundsPerMatch, body.seed);
+        result = runTournament(instances, body.roundsPerMatch, body.seed, {
+          noisyEnding: body.noisyEnding,
+          gameType: body.gameType,
+        });
       } catch (err) {
         return reply.code(400).send({
           error: 'engine_error',
@@ -370,6 +386,7 @@ export const tournamentsRoutes: FastifyPluginAsync<TournamentsRouteOptions> = as
         body.roundsPerMatch,
         body.generations!,
         body.seed,
+        { noisyEnding: body.noisyEnding, gameType: body.gameType },
       );
     } catch (err) {
       return reply.code(400).send({

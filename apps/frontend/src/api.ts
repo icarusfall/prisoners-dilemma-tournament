@@ -139,7 +139,7 @@ export interface BotRecord {
 }
 
 export interface ListBotsFilter {
-  created_via?: 'preset' | 'nl' | 'mcp';
+  created_via?: 'preset' | 'nl' | 'mcp' | 'code';
   author?: string;
 }
 
@@ -163,7 +163,7 @@ export interface CreateBotFromSpecRequest {
   name: string;
   spec: BotSpec;
   source_description?: string;
-  created_via?: 'nl' | 'mcp';
+  created_via?: 'nl' | 'mcp' | 'code';
 }
 
 export function createBotFromPreset(body: CreateBotFromPresetRequest): Promise<BotRecord> {

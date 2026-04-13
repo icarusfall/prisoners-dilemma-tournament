@@ -142,3 +142,74 @@ describe('validateBotSpec — rejects malformed input', () => {
     expect(r.valid).toBe(true);
   });
 });
+
+describe('validateBotSpec — code-tier bots', () => {
+  it('accepts a valid code bot', () => {
+    const r = validateBotSpec({
+      name: 'CodeTFT',
+      version: 1,
+      kind: 'code',
+      code: "if (view.round === 0) return 'C';\nreturn view.history.theirMoves[view.round - 1];",
+    });
+    if (!r.valid) {
+      throw new Error(`expected code bot to validate: ${JSON.stringify(r.errors, null, 2)}`);
+    }
+    expect(r.valid).toBe(true);
+  });
+
+  it('accepts a code bot with author', () => {
+    const r = validateBotSpec({
+      name: 'CodeWithAuthor',
+      author: 'Tester',
+      version: 1,
+      kind: 'code',
+      code: "return 'C';",
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects a code bot with no code field', () => {
+    const r = validateBotSpec({
+      name: 'NoCode',
+      version: 1,
+      kind: 'code',
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects a code bot with empty code', () => {
+    const r = validateBotSpec({
+      name: 'EmptyCode',
+      version: 1,
+      kind: 'code',
+      code: '',
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects a code bot with extra DSL fields', () => {
+    const r = validateBotSpec({
+      name: 'Hybrid',
+      version: 1,
+      kind: 'code',
+      code: "return 'C';",
+      rules: [],
+      initial: { type: 'move', move: 'C' },
+      default: { type: 'move', move: 'C' },
+    });
+    expect(r.valid).toBe(false);
+  });
+
+  it('rejects a DSL bot with a code field', () => {
+    const r = validateBotSpec({
+      name: 'DslWithCode',
+      version: 1,
+      kind: 'dsl',
+      initial: { type: 'move', move: 'C' },
+      rules: [],
+      default: { type: 'move', move: 'C' },
+      code: "return 'C';",
+    });
+    expect(r.valid).toBe(false);
+  });
+});

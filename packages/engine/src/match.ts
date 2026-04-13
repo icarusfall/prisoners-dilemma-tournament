@@ -16,12 +16,20 @@
 // per side).
 
 import type { BotInstance, BotView, MatchResult, Move, RoundResult } from './types.js';
-import { scoreRound } from './scoring.js';
+import { scoreRound, type Payoffs } from './scoring.js';
 import { deriveInstanceSeed, mulberry32 } from './rng.js';
 
 export interface PlayMatchOptions {
   /** Identifier to embed in the returned `MatchResult.matchId`. */
   matchId?: string;
+  /**
+   * If true, the actual number of rounds is drawn from [0.8×rounds,
+   * 1.2×rounds] using the match seed, so bots can never predict the
+   * last round. Deterministic given `(seed, rounds)`.
+   */
+  noisyEnding?: boolean;
+  /** Custom payoff matrix. Defaults to the standard PD payoffs. */
+  payoffs?: Payoffs;
 }
 
 /**
@@ -41,6 +49,16 @@ export function playMatch(
     throw new Error(`playMatch: rounds must be a positive integer, got ${rounds}`);
   }
 
+  // Noisy ending: draw actual round count from [0.8×rounds, 1.2×rounds]
+  // using a dedicated RNG stream so it doesn't perturb the bots' draws.
+  let actualRounds = rounds;
+  if (options.noisyEnding) {
+    const noiseRng = mulberry32(deriveInstanceSeed(seed, 99));
+    const lo = Math.max(1, Math.floor(rounds * 0.8));
+    const hi = Math.ceil(rounds * 1.2);
+    actualRounds = lo + Math.floor(noiseRng() * (hi - lo + 1));
+  }
+
   const rngA = mulberry32(deriveInstanceSeed(seed, 0));
   const rngB = mulberry32(deriveInstanceSeed(seed, 1));
 
@@ -52,7 +70,7 @@ export function playMatch(
   let totalA = 0;
   let totalB = 0;
 
-  for (let r = 0; r < rounds; r++) {
+  for (let r = 0; r < actualRounds; r++) {
     const viewA: BotView = {
       selfInstanceId: a.instanceId,
       opponentInstanceId: b.instanceId,
@@ -71,7 +89,7 @@ export function playMatch(
     const moveA = a.decide(viewA);
     const moveB = b.decide(viewB);
 
-    const result = scoreRound(moveA, moveB);
+    const result = scoreRound(moveA, moveB, options.payoffs);
     roundResults.push(result);
     totalA += result.scoreA;
     totalB += result.scoreB;

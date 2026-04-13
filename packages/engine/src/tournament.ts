@@ -21,10 +21,16 @@ import type {
   TournamentResult,
 } from './types.js';
 import { playMatch } from './match.js';
+import type { GameType, Payoffs } from './scoring.js';
+import { GAME_TYPES } from './scoring.js';
 
 export interface RunTournamentOptions {
   /** If true, each instance plays a match against itself. Default false. */
   includeSelfPlay?: boolean;
+  /** If true, each match's round count varies by ±20% so bots can't predict the last round. */
+  noisyEnding?: boolean;
+  /** Game type — determines the payoff matrix. Default: prisoners-dilemma. */
+  gameType?: GameType;
 }
 
 /**
@@ -58,6 +64,9 @@ export function runTournament(
   }
 
   const includeSelfPlay = options.includeSelfPlay ?? false;
+  const noisyEnding = options.noisyEnding ?? false;
+  const gameType: GameType = options.gameType ?? 'prisoners-dilemma';
+  const payoffs: Payoffs = GAME_TYPES[gameType].payoffs;
   const matches: MatchResult[] = [];
 
   // Per-instance running totals.
@@ -71,7 +80,7 @@ export function runTournament(
       const b = instances[j]!;
       const matchSeed = pairSeed(seed, i, j);
       const matchId = `m-${i}-${j}-${matchSeed}`;
-      const result = playMatch(a, b, roundsPerMatch, matchSeed, { matchId });
+      const result = playMatch(a, b, roundsPerMatch, matchSeed, { matchId, noisyEnding, payoffs });
       matches.push(result);
 
       const ta = totals.get(a.instanceId)!;
@@ -99,6 +108,8 @@ export function runTournament(
     seed,
     roundsPerMatch,
     includeSelfPlay,
+    noisyEnding,
+    gameType,
   };
 }
 

@@ -10,7 +10,6 @@
 
 import type { ArenaBot, PairState } from './types.js';
 import { pairKey } from './types.js';
-import { colourFor } from '../palette.js';
 import { SPRITE_NAMES } from './sprites/index.js';
 import type { Action, Condition, Rule } from '@pdt/engine';
 
@@ -43,15 +42,15 @@ export function createSidePanel(
   const el = document.createElement('div');
   el.style.cssText =
     `position:absolute;top:0;right:0;bottom:0;width:${PANEL_WIDTH}px;` +
-    'background:rgba(10,10,20,0.92);color:#ddd;font:13px/1.5 system-ui,sans-serif;' +
+    'background:rgba(255,255,255,0.95);color:#333;font:13px/1.5 system-ui,sans-serif;' +
     'overflow-y:auto;z-index:15;transform:translateX(100%);transition:transform 0.25s ease;' +
-    'padding:0;box-shadow:-2px 0 12px rgba(0,0,0,0.5);';
+    'padding:0;box-shadow:-2px 0 12px rgba(0,0,0,0.1);border-left:1px solid #ddd;';
 
   // ---- Close button ----
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '\u00d7';
   closeBtn.style.cssText =
-    'position:sticky;top:0;float:right;background:none;border:none;color:#999;' +
+    'position:sticky;top:0;float:right;background:none;border:none;color:#aaa;' +
     'font-size:22px;cursor:pointer;padding:8px 12px;z-index:1;';
   closeBtn.addEventListener('click', () => close());
 
@@ -85,22 +84,21 @@ export function createSidePanel(
     const bots = getBots();
     const bot = bots.find((b) => b.instanceId === selectedInstanceId);
     if (!bot) {
-      content.innerHTML = '<p style="color:#888;">Bot no longer in arena.</p>';
+      content.innerHTML = '<p style="color:#999;">Bot no longer in arena.</p>';
       return;
     }
 
     const pairs = getPairs();
     const rank = [...bots].sort((a, b) => b.score - a.score).findIndex((b) => b.instanceId === bot.instanceId) + 1;
-    const colour = colourFor(bot.botId, 0);
     const spriteName = SPRITE_NAMES[bot.spriteVariant % SPRITE_NAMES.length] ?? 'unknown';
 
     // ---- Header ----
     let html = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="width:14px;height:14px;border-radius:50%;background:${colour};flex-shrink:0;"></div>
+        <div style="width:14px;height:14px;border-radius:50%;background:#7ab8e0;flex-shrink:0;"></div>
         <div>
           <div style="font-weight:bold;font-size:15px;">${esc(bot.name)}</div>
-          <div style="color:#888;font-size:11px;">${esc(spriteName)} · ${esc(bot.botId)}</div>
+          <div style="color:#999;font-size:11px;">${esc(spriteName)} · ${esc(bot.botId)}</div>
         </div>
       </div>
     `;
@@ -108,16 +106,16 @@ export function createSidePanel(
     // ---- Score ----
     html += `
       <div style="display:flex;gap:16px;margin-bottom:14px;">
-        <div><span style="color:#888;">Score</span><br><strong>${bot.score}</strong></div>
-        <div><span style="color:#888;">Rank</span><br><strong>#${rank}</strong> of ${bots.length}</div>
+        <div><span style="color:#999;">Score</span><br><strong>${bot.score}</strong></div>
+        <div><span style="color:#999;">Rank</span><br><strong>#${rank}</strong> of ${bots.length}</div>
       </div>
     `;
 
     // ---- Strategy summary ----
     html += `
       <div style="margin-bottom:14px;">
-        <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Strategy</div>
-        <div style="font-size:12px;line-height:1.5;background:rgba(255,255,255,0.04);padding:8px 10px;border-radius:4px;">
+        <div style="color:#999;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Strategy</div>
+        <div style="font-size:12px;line-height:1.5;background:rgba(0,0,0,0.03);padding:8px 10px;border-radius:4px;">
           ${summariseStrategy(bot)}
         </div>
       </div>
@@ -127,7 +125,7 @@ export function createSidePanel(
     const opponents = bots.filter((b) => b.instanceId !== bot.instanceId);
     if (opponents.length > 0) {
       html += `
-        <div style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Opponents</div>
+        <div style="color:#999;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Opponents</div>
       `;
       for (const opp of opponents) {
         const key = pairKey(bot.instanceId, opp.instanceId);
@@ -138,29 +136,28 @@ export function createSidePanel(
         const rounds = myMoves.length;
         const myCoops = myMoves.filter((m) => m === 'C').length;
         const theirCoops = theirMoves.filter((m) => m === 'C').length;
-        const oppColour = colourFor(opp.botId, 0);
 
         html += `
-          <div style="margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:4px;border-left:3px solid ${oppColour};">
+          <div style="margin-bottom:8px;padding:6px 8px;background:rgba(0,0,0,0.03);border-radius:4px;border-left:3px solid #7ab8e0;">
             <div style="font-weight:bold;font-size:12px;">${esc(opp.name)}</div>
         `;
 
         if (rounds === 0) {
-          html += `<div style="color:#666;font-size:11px;">No encounters yet</div>`;
+          html += `<div style="color:#aaa;font-size:11px;">No encounters yet</div>`;
         } else {
           const myRate = Math.round((myCoops / rounds) * 100);
           const theirRate = Math.round((theirCoops / rounds) * 100);
           html += `
-            <div style="font-size:11px;color:#aaa;">
+            <div style="font-size:11px;color:#777;">
               ${rounds} round${rounds > 1 ? 's' : ''} ·
               Me: ${myRate}% C · Them: ${theirRate}% C
             </div>
             <div style="margin-top:3px;display:flex;gap:1px;flex-wrap:wrap;">
               ${myMoves.map((m, i) => {
                 const their = theirMoves[i];
-                const bg = m === 'C' && their === 'C' ? '#2a5a2a'
-                  : m === 'D' && their === 'D' ? '#5a2a2a'
-                  : '#4a4a2a';
+                const bg = m === 'C' && their === 'C' ? '#a8e6a8'
+                  : m === 'D' && their === 'D' ? '#e6a8a8'
+                  : '#e6dda8';
                 const label = `${m}/${their}`;
                 return `<div title="R${i + 1}: ${label}" style="width:10px;height:10px;background:${bg};border-radius:1px;"></div>`;
               }).join('')}
@@ -212,6 +209,10 @@ function conditionLabel(cond: Condition): string {
 
 function summariseStrategy(bot: ArenaBot): string {
   const spec = bot.spec;
+  if (spec.kind === 'code') {
+    const preview = spec.code.length > 120 ? spec.code.slice(0, 120) + '…' : spec.code;
+    return `<b>Code bot</b><br><code style="font-size:0.8em;color:#aac;">${esc(preview)}</code>`;
+  }
   const lines: string[] = [];
   lines.push(`<b>Opens:</b> ${actionLabel(spec.initial)}`);
 

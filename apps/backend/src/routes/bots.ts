@@ -71,7 +71,7 @@ function presetIdFromInput(input: string): PresetId | null {
   return null;
 }
 
-const ALLOWED_CREATED_VIA = new Set(['preset', 'nl', 'mcp']);
+const ALLOWED_CREATED_VIA = new Set(['preset', 'nl', 'mcp', 'code']);
 
 export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
   app: FastifyInstance,
@@ -90,7 +90,7 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
     if (created_via !== undefined && !ALLOWED_CREATED_VIA.has(created_via)) {
       return reply.code(400).send({
         error: 'invalid_query',
-        message: `created_via must be one of: preset, nl, mcp`,
+        message: `created_via must be one of: preset, nl, mcp, code`,
       });
     }
 
@@ -221,7 +221,7 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
     if (!ALLOWED_CREATED_VIA.has(createdVia) || createdVia === 'preset') {
       return reply.code(400).send({
         error: 'invalid_created_via',
-        message: `created_via must be 'nl' or 'mcp' for direct submissions`,
+        message: `created_via must be 'nl', 'mcp', or 'code' for direct submissions`,
       });
     }
 

@@ -219,3 +219,38 @@ describe('playMatch — determinism and isolation', () => {
     expect(result.matchId).toContain('77');
   });
 });
+
+describe('playMatch — noisy ending', () => {
+  it('varies the round count within ±20% of the requested rounds', () => {
+    const requested = 100;
+    const lengths = new Set<number>();
+    for (let seed = 0; seed < 50; seed++) {
+      const r = playMatch(instance('a', ALLC), instance('b', ALLC), requested, seed, {
+        noisyEnding: true,
+      });
+      lengths.add(r.rounds.length);
+      expect(r.rounds.length).toBeGreaterThanOrEqual(Math.floor(requested * 0.8));
+      expect(r.rounds.length).toBeLessThanOrEqual(Math.ceil(requested * 1.2));
+    }
+    // With 50 different seeds we should see more than one distinct length.
+    expect(lengths.size).toBeGreaterThan(1);
+  });
+
+  it('is deterministic given the same seed', () => {
+    const r1 = playMatch(instance('a', ALLC), instance('b', ALLD), 100, 42, {
+      noisyEnding: true,
+    });
+    const r2 = playMatch(instance('a', ALLC), instance('b', ALLD), 100, 42, {
+      noisyEnding: true,
+    });
+    expect(r1.rounds.length).toBe(r2.rounds.length);
+    expect(r1.rounds).toEqual(r2.rounds);
+  });
+
+  it('does not affect round count when noisyEnding is false', () => {
+    const r = playMatch(instance('a', ALLC), instance('b', ALLC), 100, 1, {
+      noisyEnding: false,
+    });
+    expect(r.rounds.length).toBe(100);
+  });
+});

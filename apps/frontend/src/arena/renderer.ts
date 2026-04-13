@@ -7,7 +7,6 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { SPRITE_NAMES, SPRITE_SVGS } from './sprites/index.js';
-import { PRESET_COLOURS } from '../palette.js';
 import type { ArenaBot } from './types.js';
 
 // ---------------------------------------------------------------------
@@ -57,16 +56,20 @@ export interface ArenaRenderer {
   destroy(): void;
 }
 
+/** Default idle colour for all bots — uniform light blue. */
+const BOT_IDLE_COLOUR = '#7ab8e0';
+
 /**
  * Colour for a bot's icon, accounting for visual state.
+ * All bots share the same idle colour; flashes override on interact.
  */
 function botIconColour(bot: ArenaBot): string {
-  if (bot.isZombie) return '#3a5a3a';
+  if (bot.isZombie) return '#3a6a3a';
   switch (bot.visualState) {
-    case 'cooperate': return '#66ee77';
-    case 'defect': return '#ee4444';
-    case 'waiting': return '#ffaa33';
-    default: return PRESET_COLOURS[bot.botId] ?? '#cccccc';
+    case 'cooperate': return '#22cc44';
+    case 'defect': return '#dd3333';
+    case 'waiting': return '#e8a020';
+    default: return BOT_IDLE_COLOUR;
   }
 }
 
@@ -149,9 +152,9 @@ export async function createRenderer(
     },
     paint: {
       'icon-color': ['get', 'colour'],
-      'text-color': '#cccccc',
-      'text-halo-color': '#111111',
-      'text-halo-width': 1,
+      'text-color': '#444444',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.2,
     },
   });
 
@@ -167,8 +170,8 @@ export async function createRenderer(
     source: 'arena-lines',
     paint: {
       'line-color': ['get', 'colour'],
-      'line-width': 4,
-      'line-opacity': 0.7,
+      'line-width': 8,
+      'line-opacity': 0.75,
     },
   });
 
@@ -188,10 +191,10 @@ export async function createRenderer(
   // ---- Tooltip ----
   const tooltip = document.createElement('div');
   tooltip.style.cssText =
-    'position:absolute;pointer-events:none;background:rgba(10,10,20,0.92);' +
-    'color:#ddd;font:12px/1.5 system-ui,sans-serif;padding:8px 12px;' +
+    'position:absolute;pointer-events:none;background:rgba(255,255,255,0.95);' +
+    'color:#333;font:12px/1.5 system-ui,sans-serif;padding:8px 12px;' +
     'border-radius:6px;max-width:320px;z-index:20;display:none;' +
-    'box-shadow:0 2px 8px rgba(0,0,0,0.4);';
+    'box-shadow:0 2px 8px rgba(0,0,0,0.15);border:1px solid #ddd;';
   container.style.position = 'relative';
   container.appendChild(tooltip);
 
@@ -261,10 +264,10 @@ export async function createRenderer(
   }
 
   function showInteractionLine(a: ArenaBot, b: ArenaBot, pairId: string): void {
-    // Determine line colour: green if both cooperated, red if both defected, yellow if mixed.
-    let colour = '#ffcc00';
-    if (a.visualState === 'cooperate' && b.visualState === 'cooperate') colour = '#66ee77';
-    else if (a.visualState === 'defect' && b.visualState === 'defect') colour = '#ee4444';
+    // Determine line colour: green if both cooperated, red if both defected, amber if mixed.
+    let colour = '#d4a017';
+    if (a.visualState === 'cooperate' && b.visualState === 'cooperate') colour = '#22cc44';
+    else if (a.visualState === 'defect' && b.visualState === 'defect') colour = '#dd3333';
 
     const feature: GeoJSON.Feature = {
       type: 'Feature',

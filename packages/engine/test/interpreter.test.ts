@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { compile } from '../src/interpreter.js';
-import type { BotSpec, BotView, Move } from '../src/types.js';
+import type { BotSpec, BotView, CodeBotSpec, Move } from '../src/types.js';
+import { CODE_MAX_LENGTH } from '../src/interpreter.js';
 
 // ---------------------------------------------------------------------------
 // Helpers for building synthetic BotViews. The interpreter is pure given
@@ -423,5 +424,95 @@ describe('interpreter — combinators and stochastic actions', () => {
     expect(decide(view(['C'], ['C'], fixedRng([0.05])))).toBe('D');
     // RNG draws 0.5 → not < 0.1 → C
     expect(decide(view(['C'], ['C'], fixedRng([0.5])))).toBe('C');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Code-tier bots
+// ---------------------------------------------------------------------------
+
+describe('compile — code-tier bots', () => {
+  it('compiles a basic TFT as code', () => {
+    const spec: CodeBotSpec = {
+      name: 'CodeTFT',
+      version: 1,
+      kind: 'code',
+      code: `if (view.round === 0) return 'C';
+return view.history.theirMoves[view.round - 1];`,
+    };
+    const decide = compile(spec);
+    expect(decide(view([], []))).toBe('C');
+    expect(decide(view(['C'], ['C']))).toBe('C');
+    expect(decide(view(['C', 'C'], ['C', 'D']))).toBe('D');
+    expect(decide(view(['C', 'C', 'D'], ['C', 'D', 'C']))).toBe('C');
+  });
+
+  it('compiles an always-defect code bot', () => {
+    const spec: CodeBotSpec = {
+      name: 'CodeALLD',
+      version: 1,
+      kind: 'code',
+      code: `return 'D';`,
+    };
+    const decide = compile(spec);
+    expect(decide(view([], []))).toBe('D');
+    expect(decide(view(['D'], ['C']))).toBe('D');
+  });
+
+  it('can use view.rng() for stochastic strategies', () => {
+    const spec: CodeBotSpec = {
+      name: 'CodeRandom',
+      version: 1,
+      kind: 'code',
+      code: `return view.rng() < 0.5 ? 'C' : 'D';`,
+    };
+    const decide = compile(spec);
+    // rng returns 0.3 → C
+    expect(decide(view([], [], fixedRng([0.3])))).toBe('C');
+    // rng returns 0.7 → D
+    expect(decide(view([], [], fixedRng([0.7])))).toBe('D');
+  });
+
+  it('defaults to C on runtime error', () => {
+    const spec: CodeBotSpec = {
+      name: 'Crasher',
+      version: 1,
+      kind: 'code',
+      code: `throw new Error('oops');`,
+    };
+    const decide = compile(spec);
+    expect(decide(view([], []))).toBe('C');
+  });
+
+  it('defaults to C on invalid return value', () => {
+    const spec: CodeBotSpec = {
+      name: 'BadReturn',
+      version: 1,
+      kind: 'code',
+      code: `return 42;`,
+    };
+    const decide = compile(spec);
+    expect(decide(view([], []))).toBe('C');
+  });
+
+  it('defaults to C when returning undefined', () => {
+    const spec: CodeBotSpec = {
+      name: 'NoReturn',
+      version: 1,
+      kind: 'code',
+      code: `// no return statement`,
+    };
+    const decide = compile(spec);
+    expect(decide(view([], []))).toBe('C');
+  });
+
+  it('rejects code exceeding max length', () => {
+    const spec: CodeBotSpec = {
+      name: 'TooLong',
+      version: 1,
+      kind: 'code',
+      code: 'x'.repeat(CODE_MAX_LENGTH + 1),
+    };
+    expect(() => compile(spec)).toThrow(/exceeds maximum length/);
   });
 });

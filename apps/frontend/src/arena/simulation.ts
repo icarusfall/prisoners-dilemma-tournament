@@ -5,7 +5,7 @@
 // the state produced here; this module never touches the DOM.
 
 import type { BotSpec, BotView, DecisionFn, Move } from '@pdt/engine';
-import { compile, scoreRound, mulberry32, deriveInstanceSeed } from '@pdt/engine';
+import { compile, scoreRound, mulberry32, deriveInstanceSeed, type Payoffs } from '@pdt/engine';
 import { narrateDecision } from './narrate.js';
 import {
   COLLISION_RADIUS,
@@ -231,6 +231,7 @@ export function playArenaRound(
   b: ArenaBot,
   pairs: Map<string, PairState>,
   now: number,
+  payoffs?: Payoffs,
 ): { moveA: Move; moveB: Move; scoreA: number; scoreB: number; isFirstMeeting: boolean; narrationA: string; narrationB: string } {
   const key = pairKey(a.instanceId, b.instanceId);
   const isFirstA = a.instanceId < b.instanceId;
@@ -272,7 +273,7 @@ export function playArenaRound(
 
   const moveA = a.decide(viewA);
   const moveB = b.decide(viewB);
-  const result = scoreRound(moveA, moveB);
+  const result = scoreRound(moveA, moveB, payoffs);
 
   // Generate narrations before history is modified.
   const narrationA = narrateDecision(a.name, a.spec, viewA, moveA);
@@ -308,6 +309,7 @@ export function tick(
   bounds: [number, number, number, number],
   rng: () => number,
   config: ArenaConfig = DEFAULT_CONFIG,
+  payoffs?: Payoffs,
 ): TickResult {
   const events: ArenaEvent[] = [];
 
@@ -337,7 +339,7 @@ export function tick(
   // Detect collisions and play rounds.
   const collisions = findCollisions(bots, pairs, now, config);
   for (const [a, b] of collisions) {
-    const result = playArenaRound(a, b, pairs, now);
+    const result = playArenaRound(a, b, pairs, now, payoffs);
 
     a.score += result.scoreA;
     b.score += result.scoreB;

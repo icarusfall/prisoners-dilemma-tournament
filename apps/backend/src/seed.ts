@@ -1,6 +1,6 @@
 // @pdt/backend — preset bot seeder.
 //
-// Writes the eight classical preset BotSpecs from `@pdt/engine` into
+// Writes the ten classical preset BotSpecs from `@pdt/engine` into
 // the `bots` table on backend boot. Idempotent: an `ON CONFLICT DO
 // NOTHING` upsert means re-running on a populated database is a
 // no-op, and updating a preset's spec in code does NOT clobber a

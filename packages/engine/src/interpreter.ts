@@ -20,22 +20,64 @@ import type {
   BotSpec,
   BotView,
   ClassifierLabel,
+  CodeBotSpec,
   Condition,
   DecisionFn,
+  DslBotSpec,
   Move,
   NumericOp,
   Side,
 } from './types.js';
 import { PAYOFFS } from './scoring.js';
 
+/** Maximum allowed code length for code-tier bots. */
+export const CODE_MAX_LENGTH = 10_000;
+
 /**
  * Compile a `BotSpec` into a deterministic `DecisionFn`.
  *
- * The returned function is pure given a `BotView`: same view in, same
- * move out. Randomness is supplied via `view.rng`, which the engine
- * seeds per-instance per-match so matches are reproducible.
+ * For DSL bots the returned function walks the rule list. For code bots
+ * the user's JavaScript function body is compiled via `new Function` and
+ * wrapped in a safety harness that catches errors and validates returns.
  */
 export function compile(spec: BotSpec): DecisionFn {
+  if (spec.kind === 'code') return compileCode(spec);
+  return compileDsl(spec);
+}
+
+// ---------------------------------------------------------------------------
+// Code-tier compilation
+// ---------------------------------------------------------------------------
+
+function compileCode(spec: CodeBotSpec): DecisionFn {
+  if (spec.code.length > CODE_MAX_LENGTH) {
+    throw new Error(
+      `Code bot "${spec.name}": code exceeds maximum length of ${CODE_MAX_LENGTH} characters`,
+    );
+  }
+  // Compile the user's code into a function. The only parameter exposed
+  // is `view` (a BotView). The function body must return 'C' or 'D'.
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const fn = new Function('view', spec.code) as (view: BotView) => unknown;
+
+  return (view: BotView): Move => {
+    try {
+      const result = fn(view);
+      if (result === 'C' || result === 'D') return result;
+      // Invalid return — default to cooperate (be nice).
+      return 'C';
+    } catch {
+      // Runtime error — default to cooperate.
+      return 'C';
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// DSL compilation
+// ---------------------------------------------------------------------------
+
+function compileDsl(spec: DslBotSpec): DecisionFn {
   return (view: BotView): Move => {
     if (view.round === 0) {
       return executeAction(spec.initial, view.rng);
