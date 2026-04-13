@@ -37,10 +37,16 @@ export function createArenaBot(
   spec: BotSpec,
   bounds: [number, number, number, number],
   rng: () => number,
+  buildings: BuildingPolygons = [],
 ): ArenaBot {
   const [west, south, east, north] = bounds;
-  const lng = west + rng() * (east - west);
-  const lat = south + rng() * (north - south);
+  // Pick a random position, retrying if it lands inside a building.
+  let lng = west + rng() * (east - west);
+  let lat = south + rng() * (north - south);
+  for (let attempt = 0; attempt < 50 && isInsideBuilding(lng, lat, buildings); attempt++) {
+    lng = west + rng() * (east - west);
+    lat = south + rng() * (north - south);
+  }
   const angle = rng() * Math.PI * 2;
   const speed = DEFAULT_SPEED;
 
@@ -75,6 +81,37 @@ const DEG_PER_METRE_LNG = 1 / 71_700;
 const DEG_PER_METRE_LAT = 1 / 111_320;
 
 // ---------------------------------------------------------------------
+// Building collision (point-in-polygon via ray casting)
+// ---------------------------------------------------------------------
+
+/** Building polygons — each is a ring of [lng, lat] pairs. */
+export type BuildingPolygons = number[][][];
+
+/**
+ * Ray-casting point-in-polygon test. Returns true if (lng, lat) is
+ * inside the given polygon ring.
+ */
+function pointInPolygon(lng: number, lat: number, ring: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i]![0]!, yi = ring[i]![1]!;
+    const xj = ring[j]![0]!, yj = ring[j]![1]!;
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** Returns true if the point is inside any building polygon. */
+function isInsideBuilding(lng: number, lat: number, buildings: BuildingPolygons): boolean {
+  for (const ring of buildings) {
+    if (pointInPolygon(lng, lat, ring)) return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------
 // Zombie creation
 // ---------------------------------------------------------------------
 
@@ -86,10 +123,15 @@ export function createZombieBot(
   variant: ZombieVariant,
   bounds: [number, number, number, number],
   rng: () => number,
+  buildings: BuildingPolygons = [],
 ): ArenaBot {
   const [west, south, east, north] = bounds;
-  const lng = west + rng() * (east - west);
-  const lat = south + rng() * (north - south);
+  let lng = west + rng() * (east - west);
+  let lat = south + rng() * (north - south);
+  for (let attempt = 0; attempt < 50 && isInsideBuilding(lng, lat, buildings); attempt++) {
+    lng = west + rng() * (east - west);
+    lat = south + rng() * (north - south);
+  }
   const angle = rng() * Math.PI * 2;
   const speed = variant === 'infected' ? ZOMBIE_INFECTED_SPEED : ZOMBIE_SHAMBLER_SPEED;
   const name = variant === 'infected' ? 'Infected' : 'Shambler';
@@ -150,14 +192,19 @@ export function moveBot(
   now: number,
   rng: () => number,
   config: ArenaConfig = DEFAULT_CONFIG,
+  buildings: BuildingPolygons = [],
 ): void {
   // Lazy velocity retargeting — pick a new wander target periodically.
   if (now - bot.lastWanderChange > config.wanderIntervalMs) {
     const [west, south, east, north] = bounds;
-    bot.wanderTarget = {
-      lng: west + rng() * (east - west),
-      lat: south + rng() * (north - south),
-    };
+    // Pick a target that isn't inside a building.
+    let tLng = west + rng() * (east - west);
+    let tLat = south + rng() * (north - south);
+    for (let attempt = 0; attempt < 20 && isInsideBuilding(tLng, tLat, buildings); attempt++) {
+      tLng = west + rng() * (east - west);
+      tLat = south + rng() * (north - south);
+    }
+    bot.wanderTarget = { lng: tLng, lat: tLat };
     bot.lastWanderChange = now;
   }
 
@@ -171,8 +218,19 @@ export function moveBot(
     bot.vy = (dLat / dist) * speed * DEG_PER_METRE_LAT;
   }
 
-  bot.lng += bot.vx * dt;
-  bot.lat += bot.vy * dt;
+  const newLng = bot.lng + bot.vx * dt;
+  const newLat = bot.lat + bot.vy * dt;
+
+  // Building collision — if next position is inside a building, bounce.
+  if (buildings.length > 0 && isInsideBuilding(newLng, newLat, buildings)) {
+    // Reverse velocity and pick a new wander target.
+    bot.vx = -bot.vx;
+    bot.vy = -bot.vy;
+    bot.lastWanderChange = 0; // Force new target next tick.
+  } else {
+    bot.lng = newLng;
+    bot.lat = newLat;
+  }
 
   // Clamp to bounds.
   const [west, south, east, north] = bounds;
@@ -310,6 +368,7 @@ export function tick(
   rng: () => number,
   config: ArenaConfig = DEFAULT_CONFIG,
   payoffs?: Payoffs,
+  buildings: BuildingPolygons = [],
 ): TickResult {
   const events: ArenaEvent[] = [];
 
@@ -323,7 +382,7 @@ export function tick(
 
   // Move all bots (including zombies — they wander too).
   for (const bot of bots) {
-    moveBot(bot, dt, bounds, now, rng, config);
+    moveBot(bot, dt, bounds, now, rng, config, buildings);
   }
 
   // Track leader for leader_change events.

@@ -9,6 +9,7 @@ import type { BotRecord } from '../api.js';
 import type { ArenaConfig } from './types.js';
 import { DEFAULT_CONFIG, SLOW_TICK_CONFIG } from './types.js';
 import { GAME_TYPES, type GameType } from '@pdt/engine';
+import { LOCATIONS, LOCATION_IDS, DEFAULT_LOCATION, type LocationId } from './offices/index.js';
 
 export interface ZombieSetup {
   shamblers: number;
@@ -20,8 +21,8 @@ export interface SetupPanelOptions {
   allBots: BotRecord[];
   /** Bot IDs currently in the arena (may contain duplicates for instances). */
   activeBotIds: string[];
-  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup + live bot IDs + game type. */
-  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup, liveBotIds: Set<string>, gameType: GameType): void;
+  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup + live bot IDs + game type + location. */
+  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup, liveBotIds: Set<string>, gameType: GameType, location: LocationId): void;
 }
 
 export interface SetupPanel {
@@ -80,6 +81,33 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
   closeBtn.addEventListener('mouseleave', () => { closeBtn.style.color = '#999'; });
   header.appendChild(closeBtn);
   panel.appendChild(header);
+
+  // ---- Location section ----
+  const locSection = document.createElement('div');
+  locSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid #ddd;flex-shrink:0;';
+
+  const locLabel = document.createElement('div');
+  locLabel.style.cssText = 'font-weight:bold;margin-bottom:8px;font-size:0.85rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;';
+  locLabel.textContent = 'Location';
+  locSection.appendChild(locLabel);
+
+  let selectedLocation: LocationId = DEFAULT_LOCATION;
+  const locSelect = document.createElement('select');
+  locSelect.style.cssText =
+    'width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;' +
+    'font:13px/1.4 system-ui,sans-serif;color:#333;background:#fff;cursor:pointer;';
+  for (const id of LOCATION_IDS) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = LOCATIONS[id].label;
+    if (id === selectedLocation) opt.selected = true;
+    locSelect.appendChild(opt);
+  }
+  locSelect.addEventListener('change', () => {
+    selectedLocation = locSelect.value as LocationId;
+  });
+  locSection.appendChild(locSelect);
+  panel.appendChild(locSection);
 
   // ---- Speed section ----
   const speedSection = document.createElement('div');
@@ -402,7 +430,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
       };
     }
     closePanel();
-    onStart(roster, config, { ...zombieCounts }, slowTickEnabled ? new Set(liveBotIds) : new Set(), selectedGameType);
+    onStart(roster, config, { ...zombieCounts }, slowTickEnabled ? new Set(liveBotIds) : new Set(), selectedGameType, selectedLocation);
   });
   footer.appendChild(startBtn);
   panel.appendChild(footer);

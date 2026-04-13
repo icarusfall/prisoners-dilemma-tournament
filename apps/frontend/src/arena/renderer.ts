@@ -54,6 +54,12 @@ export interface ArenaRenderer {
   hideTooltip(): void;
   /** Destroy the renderer and the map. */
   destroy(): void;
+  /**
+   * Extract building footprint polygons from the rendered map tiles.
+   * Returns an array of polygon rings (each ring is an array of [lng, lat] pairs).
+   * Call after the map has loaded and rendered at the target zoom level.
+   */
+  extractBuildingPolygons(): number[][][];
 }
 
 /** Default idle colour for all bots — uniform light blue. */
@@ -113,6 +119,29 @@ export async function createRenderer(
   for (const name of SPRITE_NAMES) {
     const img = await svgToImage(SPRITE_SVGS[name]);
     map.addImage(`sprite-${name}`, img, { sdf: true });
+  }
+
+  // ---- 3D building extrusions ----
+  // The light-v11 style includes a 'building' layer with polygon
+  // geometries. We add a fill-extrusion layer on top for 3D depth.
+  map.addLayer({
+    id: 'arena-3d-buildings',
+    source: 'composite',
+    'source-layer': 'building',
+    type: 'fill-extrusion',
+    minzoom: 15,
+    paint: {
+      'fill-extrusion-color': '#ddd',
+      'fill-extrusion-height': ['get', 'height'],
+      'fill-extrusion-base': ['get', 'min_height'],
+      'fill-extrusion-opacity': 0.6,
+    },
+    filter: ['==', 'extrude', 'true'],
+  });
+
+  // Hide the flat building layer so only the 3D version shows.
+  if (map.getLayer('building')) {
+    map.setLayoutProperty('building', 'visibility', 'none');
   }
 
   // ---- Bot positions GeoJSON source ----
@@ -301,6 +330,30 @@ export async function createRenderer(
     }
   }
 
+  /**
+   * Extract building footprint polygons from rendered map tiles.
+   * Returns an array of polygon outer rings, each ring being an
+   * array of [lng, lat] coordinate pairs.
+   */
+  function extractBuildingPolygons(): number[][][] {
+    const features = map.queryRenderedFeatures({
+      layers: ['arena-3d-buildings'],
+    });
+    const rings: number[][][] = [];
+    for (const f of features) {
+      const geom = f.geometry;
+      if (geom.type === 'Polygon') {
+        // Outer ring only (index 0).
+        rings.push(geom.coordinates[0] as number[][]);
+      } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) {
+          rings.push(poly[0] as number[][]);
+        }
+      }
+    }
+    return rings;
+  }
+
   function destroy(): void {
     map.remove();
   }
@@ -328,6 +381,7 @@ export async function createRenderer(
     onLineLeave,
     showTooltip,
     hideTooltip,
+    extractBuildingPolygons,
     destroy,
   };
 }

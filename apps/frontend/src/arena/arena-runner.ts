@@ -17,7 +17,7 @@ import {
   clearPendingDecisions as apiClearPending,
   type BotRecord,
 } from '../api.js';
-import { COLEMAN_STREET } from './offices/coleman-street.js';
+import { LOCATIONS, DEFAULT_LOCATION, type LocationId, type OfficeLocation } from './offices/index.js';
 import { createRenderer, type ArenaRenderer } from './renderer.js';
 import {
   createArenaBot,
@@ -27,6 +27,7 @@ import {
   findCollisions,
   playArenaRound,
   type TickResult,
+  type BuildingPolygons,
 } from './simulation.js';
 import {
   pairKey,
@@ -110,11 +111,16 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   // ---- Init renderer (expensive — kept alive across restarts) ----
   let renderer: ArenaRenderer;
   try {
-    renderer = await createRenderer(mapContainer, COLEMAN_STREET);
+    renderer = await createRenderer(mapContainer, LOCATIONS[DEFAULT_LOCATION].config);
   } catch (err) {
     captionBar.textContent = `Map failed to load: ${err instanceof Error ? err.message : err}`;
     return { destroy() { root.innerHTML = ''; } };
   }
+
+  // ---- Extract building footprints for collision ----
+  let buildingPolygons: BuildingPolygons = renderer.extractBuildingPolygons();
+  let currentLocation: LocationId = DEFAULT_LOCATION;
+  let currentOffice: OfficeLocation = LOCATIONS[DEFAULT_LOCATION].config;
 
   // ---- Mutable simulation state (rebuilt on restart) ----
   let arenaBots: ArenaBot[] = [];
@@ -475,7 +481,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
 
       // Run normal tick (which will also re-detect and handle the
       // normal collisions — but we already consumed the live ones).
-      const result: TickResult = tick(arenaBots, pairs, dt, now, [...COLEMAN_STREET.bounds], rng, config, currentPayoffs);
+      const result: TickResult = tick(arenaBots, pairs, dt, now, [...currentOffice.bounds], rng, config, currentPayoffs, buildingPolygons);
       processEvents(result.events, now);
     } else {
       const result: TickResult = tick(
@@ -483,10 +489,11 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
         pairs,
         dt,
         now,
-        [...COLEMAN_STREET.bounds],
+        [...currentOffice.bounds],
         rng,
         config,
         currentPayoffs,
+        buildingPolygons,
       );
       processEvents(result.events, now);
     }
@@ -512,7 +519,7 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   // ---- Start / restart simulation ----
-  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }, newLiveBotIds: Set<string> = new Set(), gameType: GameType = 'prisoners-dilemma'): void {
+  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }, newLiveBotIds: Set<string> = new Set(), gameType: GameType = 'prisoners-dilemma', location: LocationId = DEFAULT_LOCATION): void {
     // Stop existing loop.
     loopRunning = false;
     cancelAnimationFrame(animFrameId);
@@ -530,6 +537,23 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     renderer.clearInteractionLines();
     renderer.hideTooltip();
     captionLines.length = 0;
+
+    // Handle location change — fly the map to the new office.
+    if (location !== currentLocation) {
+      currentLocation = location;
+      currentOffice = LOCATIONS[location].config;
+      renderer.map.jumpTo({
+        center: currentOffice.center,
+        zoom: currentOffice.zoom,
+        bearing: currentOffice.bearing,
+        pitch: currentOffice.pitch,
+      });
+      // Re-extract building polygons after tiles load at new location.
+      // We defer extraction slightly to allow tile loading.
+      setTimeout(() => {
+        buildingPolygons = renderer.extractBuildingPolygons();
+      }, 2000);
+    }
 
     // Reset simulation state.
     currentGameType = gameType;
@@ -549,16 +573,16 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       const idx = (idSeen.get(b.id) ?? 0) + 1;
       idSeen.set(b.id, idx);
       const displayName = total > 1 ? `${b.name} (${idx})` : b.name;
-      const bot = createArenaBot(b.id, displayName, b.spec, [...COLEMAN_STREET.bounds], rng);
+      const bot = createArenaBot(b.id, displayName, b.spec, [...currentOffice.bounds], rng, buildingPolygons);
       if (liveBotIds.has(b.id)) bot.isLive = true;
       return bot;
     });
     // Spawn zombies.
     for (let i = 0; i < zombies.shamblers; i++) {
-      arenaBots.push(createZombieBot('shambler', [...COLEMAN_STREET.bounds], rng));
+      arenaBots.push(createZombieBot('shambler', [...currentOffice.bounds], rng, buildingPolygons));
     }
     for (let i = 0; i < zombies.infected; i++) {
-      arenaBots.push(createZombieBot('infected', [...COLEMAN_STREET.bounds], rng));
+      arenaBots.push(createZombieBot('infected', [...currentOffice.bounds], rng, buildingPolygons));
     }
 
     pairs = new Map();
@@ -585,13 +609,14 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let setupPanel: SetupPanel = createSetupPanel({
     allBots,
     activeBotIds: demoBots.map((b) => b.id),
-    onStart(roster, newConfig, zombies, newLiveBotIds, gameType) {
+    onStart(roster, newConfig, zombies, newLiveBotIds, gameType, location) {
       if (roster.length < 2) return;
       const zombieTotal = zombies.shamblers + zombies.infected;
       const zombieMsg = zombieTotal > 0 ? ` with ${zombieTotal} zombie${zombieTotal > 1 ? 's' : ''}` : '';
       const liveMsg = newLiveBotIds.size > 0 ? ` (${newLiveBotIds.size} live)` : '';
       const gameMsg = gameType !== 'prisoners-dilemma' ? ` [${GAME_TYPES[gameType].label}]` : '';
-      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}${liveMsg}${gameMsg}...`, zombies, newLiveBotIds, gameType);
+      const locMsg = location !== DEFAULT_LOCATION ? ` @ ${LOCATIONS[location].label}` : '';
+      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}${liveMsg}${gameMsg}${locMsg}...`, zombies, newLiveBotIds, gameType, location);
     },
   });
   wrapper.appendChild(setupPanel.el);

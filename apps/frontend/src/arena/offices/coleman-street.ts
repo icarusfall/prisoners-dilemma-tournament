@@ -1,24 +1,25 @@
 // Map configuration for 1 Coleman Street, London.
 //
-// The LGIM office sits on the east side of Coleman Street near
-// Moorgate station. We zoom tight enough that the bots' random
-// walks span roughly one city block — close enough to see individual
-// sprites, far enough that collisions happen naturally.
+// The LGIM office sits at the north end of Coleman Street, near
+// Moorgate station. We zoom in tight and pitch for 3D building
+// extrusions, centred on the actual office building.
 
 export const COLEMAN_STREET = {
   /** Mapbox style — light pastel theme. */
   style: 'mapbox://styles/mapbox/light-v11',
 
-  center: [-0.09005, 51.51555] as [number, number],
-  zoom: 17.5,
+  center: [-0.08988, 51.51640] as [number, number],
+  zoom: 18,
   bearing: -15,
-  pitch: 0,
+  pitch: 45,
 
   /**
-   * Bounding box that constrains bot movement. Roughly one block
-   * around 1 Coleman Street so bots stay on screen.
+   * Bounding box that constrains bot movement. Covers the streets
+   * around 1 Coleman Street — Coleman St, Moorgate, London Wall,
+   * Basinghall St. Bots are funnelled along real streets by building
+   * collision.
    *
    * [west, south, east, north] in degrees.
    */
-  bounds: [-0.0925, 51.5145, -0.0876, 51.5166] as [number, number, number, number],
+  bounds: [-0.0920, 51.5152, -0.0876, 51.5178] as [number, number, number, number],
 } as const;
