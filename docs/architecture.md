@@ -4,7 +4,7 @@ Draft v1.0 · 2026-04-13
 
 ## 1. Vision
 
-A Prisoner's Dilemma tournament platform for the LGIM AI Club. Members write "PrisonerBots" — as presets, natural-language descriptions, or via an MCP server driven by their own Claude — and those bots compete in a headless round-robin tournament for an official leaderboard. A separate graphical arena, themed as an overhead 2D map of an LGIM office (1 Coleman Street, Dublin, Chicago), runs the same bots as a live spectacle, complete with zombies.
+A Prisoner's Dilemma tournament platform for the LGIM AI Club. Members write "PrisonerBots" — as presets, natural-language descriptions, or via an MCP server driven by their own Claude — and those bots compete in a headless round-robin tournament for an official leaderboard. A separate graphical arena, themed as a 3D map of an LGIM office (London, Dublin, or Chicago), runs the same bots as a live spectacle — funnelled through real streets by building collision — complete with zombies.
 
 The tournament decides the winner. The arena decides the vibe.
 
@@ -743,7 +743,9 @@ Rough order of subsequent phases, each independently shippable:
 
 - **Phase 9 — Joss, Prober, noisy endings, alternative game types.** *Done.* Two new "occasional defector" presets (Joss: sneaky TFT with 10% random defection; Prober: tests with early defections then falls back to TFT). Noisy ending option (`noisyEnding: boolean`) varies match length ±20% so bots can't predict the last round. Alternative game types: `scoreRound()` parameterised by `Payoffs` object, four preset matrices (Prisoner's Dilemma, Chicken/Hawk-Dove, Stag Hunt, Deadlock) with `GameType` selector in setup panel, tournament API, and MCP server. 10 presets total, 132 tests passing.
 
-Phases 2 and 3 are the ones that turn "it works" into "colleagues can actually use it". Phases 4 and 5 are what unlock the actual AI Club challenge. 6–9 are the fun.
+- **Phase 10 — 3D buildings, collision, multi-location.** *Done.* 3D fill-extrusion building layer on Mapbox map. Building footprints extracted via `queryRenderedFeatures()` and used as collision geometry — bots bounce off buildings and are funnelled through real streets (ray-casting point-in-polygon). Wander targets and spawn positions avoid building interiors. Location dropdown in setup panel with three LGIM offices: London (1 Coleman St), Dublin (3 Dublin Landings), Chicago (71 S Wacker Dr). Map flies to selected office on arena restart with re-extracted building polygons.
+
+Phases 2 and 3 are the ones that turn "it works" into "colleagues can actually use it". Phases 4 and 5 are what unlock the actual AI Club challenge. 6–10 are the fun.
 
 ## 15. Deferred decisions and open questions
 
@@ -760,8 +762,8 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 - **Zombie origin** — does a zombie spawn from a bot that voluntarily "went zombie", or appear ex nihilo? Cosmetic but affects the UX. Leaning: manual add-button in the arena UI, zombie appears at a random free location.
 - **Author-defined classifiers** — the built-in `classifyOpponent()` is frozen to presets (§4.3). A future nice-to-have: let authors *build their own* classifiers as standalone `BotSpec`-fragments and call them by name from another bot. Not v1 — just flagged so we remember the idea.
 - ~~**Arena map aesthetics**~~ — *Done (Phase 8).* Switched to light-v11 Mapbox style, full pastel theme conversion across all UI components.
-- **Arena obstacles / pathfinding** — currently bots wander freely within bounds. Adding obstacles (building walls, furniture, corridors) would make movement more interesting and create natural chokepoints where bots collide more often. Could use the Mapbox building footprints as collision geometry, or define hand-placed walkable zones. Would also make the map feel more alive. Trade-off: more complex movement code (simple steering vs proper pathfinding).
+- ~~**Arena obstacles / pathfinding**~~ — *Done (Phase 10).* 3D building extrusions, building footprint collision geometry via `queryRenderedFeatures()`, ray-casting point-in-polygon bounce, multi-location support (London, Dublin, Chicago).
 
 ---
 
-**Status**: v1.0 design signed off; **Phases 1–9 complete**. Test count: 132 passing across 9 files. Next up: arena map enhancements (obstacles, pathfinding, visual theming) or further refinements.
+**Status**: v1.0 design signed off; **Phases 1–10 complete**. Test count: 132 passing across 9 files. Next up: further refinements, polish, or new features.
