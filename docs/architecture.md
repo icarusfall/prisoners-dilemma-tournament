@@ -753,7 +753,8 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 - **Depletion / conman mode** — still on the table as a future mode toggle. No engine change needed up front; the scoring module is the only thing that would be touched.
 - **Evolutionary variants** — per-individual mode (stochastic, extinction cascades), spatial evolution on the Mapbox arena itself (populations per neighbourhood), noise in replicator dynamics. All future fun; v1 is the strategy-distribution version only.
 - **Compilation retry budget** — how many times does the NL→JSON flow re-prompt Claude on validation failure? Leaning: 1 retry, then error. Tunable via env var.
-- **C3 live-decision API surface** — deferred to its own phase. Requires slow-tick arena mode, decision timeouts, and a fallback default `BotSpec` per live bot.
+- ~~**C3 live-decision API surface**~~ — *Done (Phase 7).* Slow-tick arena mode, pending-decision polling, 30s timeout with BotSpec fallback.
+- **Alternative game types (Chicken, Stag Hunt, Deadlock, etc.)** — The payoff matrix is well-isolated in `packages/engine/src/scoring.ts` (`PAYOFFS` constant). All four classic 2-player 2-move variants just reorder T/R/P/S values. Option 1 (different payoffs, same C/D moves) is ~2-3 hours: parameterize `scoreRound()` to accept a payoffs object, add a `gameType` selector to tournament/arena setup, define preset matrices. The existing BotSpec DSL works unchanged — bots still choose C or D, only the strategic meaning shifts. Option 2 (renamed moves, e.g. Hawk/Dove) adds a display-name layer (~1 day). Option 3 (3+ moves, e.g. RPS) would require DSL/schema redesign — not planned. Leaning: Option 1 as a quick win, possibly bundled with a "game lab" UI tab.
 - **Zombie origin** — does a zombie spawn from a bot that voluntarily "went zombie", or appear ex nihilo? Cosmetic but affects the UX. Leaning: manual add-button in the arena UI, zombie appears at a random free location.
 - **Author-defined classifiers** — the built-in `classifyOpponent()` is frozen to presets (§4.3). A future nice-to-have: let authors *build their own* classifiers as standalone `BotSpec`-fragments and call them by name from another bot. Not v1 — just flagged so we remember the idea.
 - **Arena map aesthetics** — the dark-v11 Mapbox style is functional but could be more colourful/inviting. Options: custom Mapbox Studio style with highlighted buildings, coloured zones, or overlays (e.g. department labels, meeting-room zones). Would make the arena feel more like a real office rather than a dark void.
@@ -761,4 +762,4 @@ Things I've deliberately punted on and want to revisit later, not block on now:
 
 ---
 
-**Status**: v0.6 design signed off; **Phase 1 complete**, **Phase 2 in progress** — 11 of 15 arena tasks done as of 2026-04-12. Test count: 123 across 10 files (unchanged — arena is client-side rendering, no new test files yet). Next up: persistent caption narrator (task 12).
+**Status**: v0.7 design signed off; **Phases 1–7 complete**. Test count: 106 passing across 9 files. Next up: Phase 8 (Code-tier bots) or alternative game types.
