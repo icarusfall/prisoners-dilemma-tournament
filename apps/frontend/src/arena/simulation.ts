@@ -213,7 +213,10 @@ export function moveBot(
   const dLat = bot.wanderTarget.lat - bot.lat;
   const dist = Math.sqrt(dLng * dLng + dLat * dLat);
   if (dist > 0.000001) {
-    const speed = config.speed;
+    // Zombies use their own variant speed; normal bots use config speed.
+    const speed = bot.isZombie
+      ? (bot.zombieVariant === 'infected' ? ZOMBIE_INFECTED_SPEED : ZOMBIE_SHAMBLER_SPEED)
+      : config.speed;
     bot.vx = (dLng / dist) * speed * DEG_PER_METRE_LNG;
     bot.vy = (dLat / dist) * speed * DEG_PER_METRE_LAT;
   }

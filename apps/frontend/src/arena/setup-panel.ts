@@ -68,7 +68,8 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
     'position:absolute;top:0;right:0;width:300px;height:100%;z-index:22;' +
     'background:rgba(245,245,250,0.97);backdrop-filter:blur(8px);' +
     'border-left:1px solid #ddd;' +
-    'display:none;flex-direction:column;color:#333;font:13px/1.5 system-ui,sans-serif;';
+    'display:none;flex-direction:column;color:#333;font:13px/1.5 system-ui,sans-serif;' +
+    'overflow-y:auto;';
 
   // Header
   const header = document.createElement('div');
@@ -276,7 +277,7 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
 
   // ---- Bot selection section ----
   const botSection = document.createElement('div');
-  botSection.style.cssText = 'padding:14px 16px;flex:1;overflow-y:auto;min-height:0;';
+  botSection.style.cssText = 'padding:14px 16px;';
 
   const botHeader = document.createElement('div');
   botHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;';
