@@ -10,7 +10,13 @@
 // The setup panel lets users pick bots and adjust speed, then restart
 // the simulation without destroying the Mapbox map.
 
-import { listBots, type BotRecord } from '../api.js';
+import {
+  listBots,
+  createPendingDecision as apiCreatePending,
+  pollDecision as apiPollDecision,
+  clearPendingDecisions as apiClearPending,
+  type BotRecord,
+} from '../api.js';
 import { COLEMAN_STREET } from './offices/coleman-street.js';
 import { createRenderer, type ArenaRenderer } from './renderer.js';
 import {
@@ -18,6 +24,8 @@ import {
   createZombieBot,
   resetInstanceCounter,
   tick,
+  findCollisions,
+  playArenaRound,
   type TickResult,
 } from './simulation.js';
 import {
@@ -29,7 +37,7 @@ import {
   type ArenaEvent,
   type PairState,
 } from './types.js';
-import { mulberry32 } from '@pdt/engine';
+import { mulberry32, scoreRound, type Move } from '@pdt/engine';
 import { createSidePanel, type SidePanel } from './side-panel.js';
 import { createNarrator, type Narrator } from './narrator.js';
 import { createExplainerOverlay, type ExplainerOverlay } from './explainer-overlay.js';
@@ -116,6 +124,20 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let rng: () => number;
   let animFrameId = 0;
   let loopRunning = false;
+  let liveBotIds = new Set<string>();
+
+  // Track pending live decisions being polled.
+  interface LivePending {
+    decisionId: string;
+    a: ArenaBot;
+    b: ArenaBot;
+    /** Which bot (a, b, or both) is live. */
+    liveA: boolean;
+    liveB: boolean;
+    pollTimer: ReturnType<typeof setInterval>;
+    createdAt: number;
+  }
+  const livePendings: LivePending[] = [];
 
   // Caption display state.
   const captionLines: { text: string; expiresAt: number }[] = [];
@@ -186,6 +208,231 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     renderer.hideTooltip();
   });
 
+  // ---- Live-decision helpers ----
+
+  let decisionCounter = 0;
+
+  function isLiveBot(bot: ArenaBot): boolean {
+    return config.slowTick && (bot.isLive === true);
+  }
+
+  /**
+   * Handle a collision where at least one bot is live.
+   * Posts a pending decision to the backend for each live bot involved,
+   * then polls for the response. When both moves are known, resolves
+   * the round normally.
+   */
+  function handleLiveCollision(a: ArenaBot, b: ArenaBot, now: number): void {
+    const liveA = isLiveBot(a);
+    const liveB = isLiveBot(b);
+
+    // Build the pair context.
+    const key = pairKey(a.instanceId, b.instanceId);
+    const isFirstA = a.instanceId < b.instanceId;
+
+    let pair = pairs.get(key);
+    if (!pair) {
+      let h = 0;
+      for (const ch of key) h = (Math.imul(31, h) + ch.charCodeAt(0)) | 0;
+      pair = { movesA: [], movesB: [], lastInteraction: 0, seed: h >>> 0 };
+      pairs.set(key, pair);
+    }
+
+    const myMovesForA = isFirstA ? pair.movesA : pair.movesB;
+    const theirMovesForA = isFirstA ? pair.movesB : pair.movesA;
+    const myMovesForB = isFirstA ? pair.movesB : pair.movesA;
+    const theirMovesForB = isFirstA ? pair.movesA : pair.movesB;
+    const round = myMovesForA.length;
+
+    // Set waiting visual state.
+    if (liveA) { a.visualState = 'waiting'; a.flashUntil = Infinity; }
+    if (liveB) { b.visualState = 'waiting'; b.flashUntil = Infinity; }
+
+    // Mark cooldown so we don't re-collide during polling.
+    pair.lastInteraction = now + 60_000;
+
+    // We may need to collect up to 2 moves.
+    let moveA: Move | null = liveA ? null : a.decide({
+      selfInstanceId: a.instanceId,
+      opponentInstanceId: b.instanceId,
+      round,
+      history: { myMoves: [...myMovesForA], theirMoves: [...theirMovesForA] },
+      rng: () => Math.random(),
+    });
+    let moveB: Move | null = liveB ? null : b.decide({
+      selfInstanceId: b.instanceId,
+      opponentInstanceId: a.instanceId,
+      round,
+      history: { myMoves: [...myMovesForB], theirMoves: [...theirMovesForB] },
+      rng: () => Math.random(),
+    });
+
+    // Post pending decisions for live bots.
+    const decId = `live-${++decisionCounter}-${Date.now()}`;
+
+    // For simplicity, create one pending decision per live bot.
+    // If both are live, the first responder doesn't resolve the round;
+    // we wait for both.
+    const pending: LivePending = {
+      decisionId: decId,
+      a, b,
+      liveA, liveB,
+      pollTimer: 0 as unknown as ReturnType<typeof setInterval>,
+      createdAt: Date.now(),
+    };
+
+    const POLL_INTERVAL = 1000;
+    const TIMEOUT = 30_000;
+
+    // Create pending decisions for each live bot and start polling.
+    const decIdA = liveA ? `${decId}-a` : null;
+    const decIdB = liveB ? `${decId}-b` : null;
+
+    if (liveA && decIdA) {
+      a.pendingDecisionId = decIdA;
+      apiCreatePending({
+        id: decIdA,
+        botInstanceId: a.instanceId,
+        botId: a.botId,
+        botName: a.name,
+        opponentInstanceId: b.instanceId,
+        opponentName: b.name,
+        round,
+        myMoves: [...myMovesForA],
+        theirMoves: [...theirMovesForA],
+      }).catch(() => { /* ignore network errors — will timeout */ });
+    }
+
+    if (liveB && decIdB) {
+      b.pendingDecisionId = decIdB;
+      apiCreatePending({
+        id: decIdB,
+        botInstanceId: b.instanceId,
+        botId: b.botId,
+        botName: b.name,
+        opponentInstanceId: a.instanceId,
+        opponentName: a.name,
+        round,
+        myMoves: [...myMovesForB],
+        theirMoves: [...theirMovesForB],
+      }).catch(() => { /* ignore network errors — will timeout */ });
+    }
+
+    function resolveRound(): void {
+      if (moveA === null || moveB === null) return;
+
+      clearInterval(pending.pollTimer);
+      const idx = livePendings.indexOf(pending);
+      if (idx >= 0) livePendings.splice(idx, 1);
+
+      // Score and record.
+      const result = scoreRound(moveA!, moveB!);
+      a.score += result.scoreA;
+      b.score += result.scoreB;
+
+      // Visual flash.
+      a.visualState = moveA === 'C' ? 'cooperate' : 'defect';
+      b.visualState = moveB === 'C' ? 'cooperate' : 'defect';
+      const flashNow = performance.now();
+      a.flashUntil = flashNow + config.flashDurationMs;
+      b.flashUntil = flashNow + config.flashDurationMs;
+      a.pendingDecisionId = null;
+      b.pendingDecisionId = null;
+
+      // Record in pair history.
+      if (isFirstA) {
+        pair!.movesA.push(moveA!);
+        pair!.movesB.push(moveB!);
+      } else {
+        pair!.movesA.push(moveB!);
+        pair!.movesB.push(moveA!);
+      }
+      pair!.lastInteraction = performance.now();
+
+      // Events.
+      const isFirstMeeting = round === 0;
+      const events: ArenaEvent[] = [{
+        type: 'interaction',
+        aId: a.instanceId,
+        bId: b.instanceId,
+        moveA: moveA!,
+        moveB: moveB!,
+        scoreA: result.scoreA,
+        scoreB: result.scoreB,
+        narrationA: `${a.name} played ${moveA}`,
+        narrationB: `${b.name} played ${moveB}`,
+      }];
+      if (isFirstMeeting) {
+        events.push({ type: 'first_meeting', aId: a.instanceId, bId: b.instanceId });
+      }
+      processEvents(events, performance.now());
+      renderScoreboard();
+    }
+
+    function fallbackOnTimeout(): void {
+      // Use BotSpec default for any live bot that hasn't responded.
+      if (moveA === null) moveA = a.decide({
+        selfInstanceId: a.instanceId,
+        opponentInstanceId: b.instanceId,
+        round,
+        history: { myMoves: [...myMovesForA], theirMoves: [...theirMovesForA] },
+        rng: () => Math.random(),
+      });
+      if (moveB === null) moveB = b.decide({
+        selfInstanceId: b.instanceId,
+        opponentInstanceId: a.instanceId,
+        round,
+        history: { myMoves: [...myMovesForB], theirMoves: [...theirMovesForB] },
+        rng: () => Math.random(),
+      });
+      resolveRound();
+    }
+
+    pending.pollTimer = setInterval(async () => {
+      const elapsed = Date.now() - pending.createdAt;
+      if (elapsed > TIMEOUT) {
+        pushCaption('Decision timed out — falling back to BotSpec default.', performance.now());
+        fallbackOnTimeout();
+        return;
+      }
+
+      try {
+        if (liveA && decIdA && moveA === null) {
+          const resp = await apiPollDecision(decIdA);
+          if (resp.resolved && resp.move) {
+            moveA = resp.move;
+            pushCaption(`${a.name} chose ${resp.move === 'C' ? 'Cooperate' : 'Defect'} (live)`, performance.now());
+          } else if (resp.expired) {
+            moveA = a.decide({
+              selfInstanceId: a.instanceId, opponentInstanceId: b.instanceId, round,
+              history: { myMoves: [...myMovesForA], theirMoves: [...theirMovesForA] },
+              rng: () => Math.random(),
+            });
+          }
+        }
+        if (liveB && decIdB && moveB === null) {
+          const resp = await apiPollDecision(decIdB);
+          if (resp.resolved && resp.move) {
+            moveB = resp.move;
+            pushCaption(`${b.name} chose ${resp.move === 'C' ? 'Cooperate' : 'Defect'} (live)`, performance.now());
+          } else if (resp.expired) {
+            moveB = b.decide({
+              selfInstanceId: b.instanceId, opponentInstanceId: a.instanceId, round,
+              history: { myMoves: [...myMovesForB], theirMoves: [...theirMovesForB] },
+              rng: () => Math.random(),
+            });
+          }
+        }
+      } catch {
+        // Network error — will retry next poll or timeout
+      }
+
+      resolveRound();
+    }, POLL_INTERVAL);
+
+    livePendings.push(pending);
+  }
+
   // ---- Game loop ----
   let lastTime = 0;
   let lastPanelRefresh = 0;
@@ -198,15 +445,47 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     lastTime = timestamp;
     const now = timestamp;
 
-    const result: TickResult = tick(
-      arenaBots,
-      pairs,
-      dt,
-      now,
-      [...COLEMAN_STREET.bounds],
-      rng,
-      config,
-    );
+    if (config.slowTick) {
+      // In slow-tick mode, we run movement via tick() but intercept
+      // collisions involving live bots before they resolve.
+      // First run tick normally — it handles movement, zombie collisions,
+      // and non-live-bot collisions.
+      const collisions = findCollisions(arenaBots, pairs, now, config);
+      const liveCollisions: [ArenaBot, ArenaBot][] = [];
+      const normalCollisions: [ArenaBot, ArenaBot][] = [];
+
+      for (const [a, b] of collisions) {
+        // Skip if either bot is already waiting for a decision.
+        if (a.pendingDecisionId || b.pendingDecisionId) continue;
+
+        if (isLiveBot(a) || isLiveBot(b)) {
+          liveCollisions.push([a, b]);
+        } else {
+          normalCollisions.push([a, b]);
+        }
+      }
+
+      // Handle live collisions asynchronously.
+      for (const [a, b] of liveCollisions) {
+        handleLiveCollision(a, b, now);
+      }
+
+      // Run normal tick (which will also re-detect and handle the
+      // normal collisions — but we already consumed the live ones).
+      const result: TickResult = tick(arenaBots, pairs, dt, now, [...COLEMAN_STREET.bounds], rng, config);
+      processEvents(result.events, now);
+    } else {
+      const result: TickResult = tick(
+        arenaBots,
+        pairs,
+        dt,
+        now,
+        [...COLEMAN_STREET.bounds],
+        rng,
+        config,
+      );
+      processEvents(result.events, now);
+    }
 
     // Expire interaction lines.
     for (let i = activeLines.length - 1; i >= 0; i--) {
@@ -216,7 +495,6 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       }
     }
 
-    processEvents(result.events, now);
     renderCaptions(now);
     renderScoreboard();
     renderer.updateBots(arenaBots);
@@ -230,10 +508,18 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   }
 
   // ---- Start / restart simulation ----
-  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }): void {
+  function startSimulation(botRecords: BotRecord[], newConfig: ArenaConfig, message: string, zombies: ZombieSetup = { shamblers: 0, infected: 0 }, newLiveBotIds: Set<string> = new Set()): void {
     // Stop existing loop.
     loopRunning = false;
     cancelAnimationFrame(animFrameId);
+
+    // Clean up any active live pendings.
+    for (const p of livePendings) clearInterval(p.pollTimer);
+    livePendings.length = 0;
+    liveBotIds = newLiveBotIds;
+
+    // Clear backend pending decisions.
+    if (newConfig.slowTick) apiClearPending().catch(() => {});
 
     // Clear visual state.
     sidePanel.close();
@@ -257,7 +543,9 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       const idx = (idSeen.get(b.id) ?? 0) + 1;
       idSeen.set(b.id, idx);
       const displayName = total > 1 ? `${b.name} (${idx})` : b.name;
-      return createArenaBot(b.id, displayName, b.spec, [...COLEMAN_STREET.bounds], rng);
+      const bot = createArenaBot(b.id, displayName, b.spec, [...COLEMAN_STREET.bounds], rng);
+      if (liveBotIds.has(b.id)) bot.isLive = true;
+      return bot;
     });
     // Spawn zombies.
     for (let i = 0; i < zombies.shamblers; i++) {
@@ -291,11 +579,12 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
   let setupPanel: SetupPanel = createSetupPanel({
     allBots,
     activeBotIds: demoBots.map((b) => b.id),
-    onStart(roster, newConfig, zombies) {
+    onStart(roster, newConfig, zombies, newLiveBotIds) {
       if (roster.length < 2) return;
       const zombieTotal = zombies.shamblers + zombies.infected;
       const zombieMsg = zombieTotal > 0 ? ` with ${zombieTotal} zombie${zombieTotal > 1 ? 's' : ''}` : '';
-      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}...`, zombies);
+      const liveMsg = newLiveBotIds.size > 0 ? ` (${newLiveBotIds.size} live)` : '';
+      startSimulation(roster, newConfig, `Custom arena started — ${roster.length} bots competing${zombieMsg}${liveMsg}...`, zombies, newLiveBotIds);
     },
   });
   wrapper.appendChild(setupPanel.el);
@@ -312,6 +601,8 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       destroyed = true;
       loopRunning = false;
       cancelAnimationFrame(animFrameId);
+      for (const p of livePendings) clearInterval(p.pollTimer);
+      livePendings.length = 0;
       sidePanel.close();
       setupPanel.destroy();
       explainer.destroy();

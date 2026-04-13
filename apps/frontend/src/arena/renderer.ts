@@ -65,6 +65,7 @@ function botIconColour(bot: ArenaBot): string {
   switch (bot.visualState) {
     case 'cooperate': return '#66ee77';
     case 'defect': return '#ee4444';
+    case 'waiting': return '#ffaa33';
     default: return PRESET_COLOURS[bot.botId] ?? '#cccccc';
   }
 }
@@ -137,7 +138,7 @@ export async function createRenderer(
     source: 'arena-bots',
     layout: {
       'icon-image': ['get', 'spriteImage'],
-      'icon-size': 0.6,
+      'icon-size': ['case', ['==', ['get', 'isWaiting'], 1], 0.8, 0.6],
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
       'text-field': ['get', 'label'],
@@ -244,10 +245,11 @@ export async function createRenderer(
         properties: {
           id: bot.instanceId,
           botId: bot.botId,
-          label: bot.name,
+          label: bot.isLive ? `\u{1F9E0} ${bot.name}` : bot.name,
           colour: botIconColour(bot),
           score: bot.score,
           spriteImage: `sprite-${SPRITE_NAMES[bot.spriteVariant % SPRITE_NAMES.length]}`,
+          isWaiting: bot.visualState === 'waiting' ? 1 : 0,
         },
       })),
     };

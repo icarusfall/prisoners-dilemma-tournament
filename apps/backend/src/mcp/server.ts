@@ -32,6 +32,12 @@ import {
 import { BOT_SPEC_SCHEMA } from '../schema/bot-spec-schema.js';
 import { validateBotSpec } from '../schema/validate-bot-spec.js';
 import { generateBotId } from '../util/ids.js';
+import {
+  getPendingForBot,
+  submitMove,
+  listPending,
+  DECISION_TIMEOUT_MS,
+} from '../arena/pending-decisions.js';
 
 // ---- Types ----
 
@@ -421,6 +427,139 @@ export function createMcpServer(sql: Sql): McpServer {
 
       return {
         content: [{ type: 'text', text: JSON.stringify({ matches: summaries }) }],
+      };
+    },
+  );
+
+  // ---- get_pending_decision ----
+  mcp.tool(
+    'get_pending_decision',
+    'Poll for a pending arena decision for one of your live bots. Returns the game context (opponent, round, history) so you can choose C or D. Returns null if no decision is pending.',
+    {
+      bot_instance_id: z.string().describe('The bot instance ID in the arena (e.g. "tft#0")'),
+    },
+    async ({ bot_instance_id }) => {
+      const d = getPendingForBot(bot_instance_id);
+      if (!d) {
+        // Also check if there are any pending decisions at all
+        const all = listPending();
+        if (all.length === 0) {
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({ pending: false, message: 'No decisions pending in the arena. Wait for your bot to collide with an opponent.' }),
+            }],
+          };
+        }
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              pending: false,
+              message: `No decision pending for "${bot_instance_id}". There are ${all.length} other pending decision(s).`,
+              available_bots: all.map((p) => p.botInstanceId),
+            }),
+          }],
+        };
+      }
+
+      const elapsed = Date.now() - d.createdAt;
+      const remaining = Math.max(0, DECISION_TIMEOUT_MS - elapsed);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            pending: true,
+            decision_id: d.id,
+            bot_instance_id: d.botInstanceId,
+            bot_name: d.botName,
+            opponent_instance_id: d.opponentInstanceId,
+            opponent_name: d.opponentName,
+            round: d.round,
+            my_moves: d.myMoves,
+            their_moves: d.theirMoves,
+            timeout_remaining_ms: remaining,
+            hint: 'Call submit_decision with this decision_id and your chosen move (C or D).',
+          }),
+        }],
+      };
+    },
+  );
+
+  // ---- submit_decision ----
+  mcp.tool(
+    'submit_decision',
+    'Submit your move (C for cooperate, D for defect) for a pending arena decision. The arena will resolve the round using your choice.',
+    {
+      decision_id: z.string().describe('The decision ID from get_pending_decision'),
+      move: z.enum(['C', 'D']).describe('Your move: C (cooperate) or D (defect)'),
+    },
+    async ({ decision_id, move }) => {
+      const d = submitMove(decision_id, move as 'C' | 'D');
+      if (!d) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ ok: false, error: 'Decision not found or expired. It may have timed out.' }),
+          }],
+          isError: true,
+        };
+      }
+      if (d.resolvedAt && d.move) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              ok: true,
+              decision_id: d.id,
+              move: d.move,
+              opponent_name: d.opponentName,
+              round: d.round,
+              message: `You played ${d.move === 'C' ? 'Cooperate' : 'Defect'} against ${d.opponentName} in round ${d.round}.`,
+            }),
+          }],
+        };
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ ok: false, error: 'Decision was already resolved.' }),
+        }],
+      };
+    },
+  );
+
+  // ---- list_pending_decisions ----
+  mcp.tool(
+    'list_pending_decisions',
+    'List all currently pending arena decisions across all live bots. Useful to see which bots need your attention.',
+    {},
+    async () => {
+      const all = listPending();
+      if (all.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ count: 0, message: 'No decisions pending. The arena may be between collisions.' }),
+          }],
+        };
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: all.length,
+            decisions: all.map((d) => ({
+              decision_id: d.id,
+              bot_instance_id: d.botInstanceId,
+              bot_name: d.botName,
+              opponent_name: d.opponentName,
+              round: d.round,
+              elapsed_ms: Date.now() - d.createdAt,
+            })),
+          }),
+        }],
       };
     },
   );

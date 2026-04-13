@@ -286,3 +286,42 @@ export async function listPlayers(): Promise<PlayerSummary[]> {
   const data = await request<{ players: PlayerSummary[] }>('/api/players');
   return data.players;
 }
+
+// ---------------------------------------------------------------------
+// /api/arena — Live MCP decisions (Phase 7)
+// ---------------------------------------------------------------------
+
+export interface PendingDecisionRequest {
+  id: string;
+  botInstanceId: string;
+  botId: string;
+  botName: string;
+  opponentInstanceId: string;
+  opponentName: string;
+  round: number;
+  myMoves: string[];
+  theirMoves: string[];
+}
+
+export interface DecisionPollResponse {
+  id: string;
+  botInstanceId: string;
+  move: 'C' | 'D' | null;
+  resolved: boolean;
+  expired: boolean;
+}
+
+export function createPendingDecision(body: PendingDecisionRequest): Promise<{ id: string; timeoutMs: number }> {
+  return request<{ id: string; timeoutMs: number }>('/api/arena/pending', {
+    method: 'POST',
+    body,
+  });
+}
+
+export function pollDecision(id: string): Promise<DecisionPollResponse> {
+  return request<DecisionPollResponse>(`/api/arena/decision/${encodeURIComponent(id)}`);
+}
+
+export function clearPendingDecisions(): Promise<void> {
+  return request<void>('/api/arena/pending', { method: 'DELETE' });
+}

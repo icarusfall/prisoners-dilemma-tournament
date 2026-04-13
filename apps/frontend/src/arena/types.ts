@@ -31,6 +31,12 @@ export const DEMO_TICK_MS = 100;
 /** Normal-speed tick interval (ms). */
 export const NORMAL_TICK_MS = 50;
 
+/** Slow-tick speed — gives MCP clients time to respond (m/s). */
+export const SLOW_TICK_SPEED = 3;
+
+/** Slow-tick collision cooldown — longer gaps between decisions. */
+export const SLOW_TICK_COOLDOWN_MS = 8000;
+
 /** Duration the interaction line stays visible (ms). */
 export const LINE_DURATION_MS = 3000;
 
@@ -46,7 +52,7 @@ export type ZombieVariant = 'shambler' | 'infected';
 // Visual state
 // ---------------------------------------------------------------------
 
-export type VisualState = 'idle' | 'cooperate' | 'defect' | 'zombie';
+export type VisualState = 'idle' | 'cooperate' | 'defect' | 'zombie' | 'waiting';
 
 // ---------------------------------------------------------------------
 // Arena bot
@@ -83,6 +89,11 @@ export interface ArenaBot {
   wanderTarget: { lng: number; lat: number };
   /** Timestamp of last wander retarget. */
   lastWanderChange: number;
+
+  /** Whether this bot is controlled by an external MCP client. */
+  isLive?: boolean;
+  /** ID of the pending decision (set while waiting for MCP response). */
+  pendingDecisionId?: string | null;
 }
 
 // ---------------------------------------------------------------------
@@ -128,6 +139,8 @@ export interface ArenaConfig {
   wanderIntervalMs: number;
   flashDurationMs: number;
   tickMs: number;
+  /** When true, live bots pause on collision and wait for MCP input. */
+  slowTick: boolean;
 }
 
 export const DEFAULT_CONFIG: ArenaConfig = {
@@ -137,10 +150,19 @@ export const DEFAULT_CONFIG: ArenaConfig = {
   wanderIntervalMs: WANDER_INTERVAL_MS,
   flashDurationMs: FLASH_DURATION_MS,
   tickMs: NORMAL_TICK_MS,
+  slowTick: false,
 };
 
 export const DEMO_CONFIG: ArenaConfig = {
   ...DEFAULT_CONFIG,
   tickMs: DEMO_TICK_MS,
   speed: 10,
+};
+
+export const SLOW_TICK_CONFIG: ArenaConfig = {
+  ...DEFAULT_CONFIG,
+  speed: SLOW_TICK_SPEED,
+  cooldownMs: SLOW_TICK_COOLDOWN_MS,
+  flashDurationMs: 2000,
+  slowTick: true,
 };

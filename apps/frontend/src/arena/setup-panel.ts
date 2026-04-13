@@ -7,7 +7,7 @@
 
 import type { BotRecord } from '../api.js';
 import type { ArenaConfig } from './types.js';
-import { DEFAULT_CONFIG } from './types.js';
+import { DEFAULT_CONFIG, SLOW_TICK_CONFIG } from './types.js';
 
 export interface ZombieSetup {
   shamblers: number;
@@ -19,8 +19,8 @@ export interface SetupPanelOptions {
   allBots: BotRecord[];
   /** Bot IDs currently in the arena (may contain duplicates for instances). */
   activeBotIds: string[];
-  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup. */
-  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup): void;
+  /** Called when the user hits "Start".  Receives a flat BotRecord[] (with dupes) + config + zombie setup + live bot IDs. */
+  onStart(bots: BotRecord[], config: ArenaConfig, zombies: ZombieSetup, liveBotIds: Set<string>): void;
 }
 
 export interface SetupPanel {
@@ -110,6 +110,47 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
   speedSection.appendChild(speedRow);
   panel.appendChild(speedSection);
 
+  // ---- Slow-tick (Live MCP) section ----
+  const liveSection = document.createElement('div');
+  liveSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
+
+  const liveToggleRow = document.createElement('div');
+  liveToggleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
+
+  const liveLabel = document.createElement('div');
+  liveLabel.style.cssText = 'font-weight:bold;font-size:0.85rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;';
+  liveLabel.textContent = 'Live MCP Mode';
+  liveToggleRow.appendChild(liveLabel);
+
+  let slowTickEnabled = false;
+  const liveToggle = document.createElement('button');
+  liveToggle.textContent = 'OFF';
+  liveToggle.style.cssText = toggleBtnStyle(false);
+
+  function updateLiveToggle(): void {
+    liveToggle.textContent = slowTickEnabled ? 'ON' : 'OFF';
+    liveToggle.style.cssText = toggleBtnStyle(slowTickEnabled);
+    liveHint.style.display = slowTickEnabled ? 'block' : 'none';
+    // Show/hide per-bot live checkboxes
+    for (const cb of liveCheckboxes) cb.style.display = slowTickEnabled ? 'inline-flex' : 'none';
+    // When slow-tick is on, override speed display
+    for (const btn of speedBtns) btn.style.opacity = slowTickEnabled ? '0.4' : '1';
+  }
+
+  liveToggle.addEventListener('click', () => {
+    slowTickEnabled = !slowTickEnabled;
+    updateLiveToggle();
+  });
+  liveToggleRow.appendChild(liveToggle);
+  liveSection.appendChild(liveToggleRow);
+
+  const liveHint = document.createElement('div');
+  liveHint.style.cssText = 'font-size:0.75rem;color:#8ab;margin-top:6px;display:none;line-height:1.4;';
+  liveHint.textContent = 'Bots marked with a brain icon will pause on collision and wait for your MCP client to choose C or D. Connect via the MCP server.';
+  liveSection.appendChild(liveHint);
+
+  panel.appendChild(liveSection);
+
   // ---- Zombie section ----
   const zombieSection = document.createElement('div');
   zombieSection.style.cssText = 'padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;';
@@ -189,6 +230,8 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
 
   // Per-bot rows with −/+ steppers.
   const countDisplays: HTMLSpanElement[] = [];
+  const liveCheckboxes: HTMLElement[] = [];
+  const liveBotIds = new Set<string>();
 
   function totalBots(): number {
     let total = 0;
@@ -211,6 +254,27 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
     name.textContent = bot.name;
     name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px;';
     row.appendChild(name);
+
+    // Live-bot toggle (brain icon, hidden unless slow-tick is on).
+    const liveCb = document.createElement('button');
+    liveCb.textContent = '\u{1F9E0}';
+    liveCb.title = 'Toggle live MCP control for this bot';
+    liveCb.style.cssText = 'all:unset;cursor:pointer;font-size:14px;margin-right:6px;opacity:0.3;display:none;' +
+      'width:22px;height:22px;text-align:center;border-radius:4px;' +
+      'align-items:center;justify-content:center;';
+    liveCb.addEventListener('click', () => {
+      if (liveBotIds.has(bot.id)) {
+        liveBotIds.delete(bot.id);
+        liveCb.style.opacity = '0.3';
+        liveCb.style.background = 'transparent';
+      } else {
+        liveBotIds.add(bot.id);
+        liveCb.style.opacity = '1';
+        liveCb.style.background = 'rgba(100,180,255,0.2)';
+      }
+    });
+    liveCheckboxes.push(liveCb);
+    row.appendChild(liveCb);
 
     const stepper = document.createElement('div');
     stepper.style.cssText = 'display:flex;align-items:center;gap:4px;flex-shrink:0;';
@@ -288,14 +352,19 @@ export function createSetupPanel(opts: SetupPanelOptions): SetupPanel {
       const n = counts.get(bot.id) ?? 0;
       for (let i = 0; i < n; i++) roster.push(bot);
     }
-    const preset = SPEED_PRESETS[currentSpeedIndex]!;
-    const config: ArenaConfig = {
-      ...DEFAULT_CONFIG,
-      speed: preset.speed,
-      tickMs: preset.tick,
-    };
+    let config: ArenaConfig;
+    if (slowTickEnabled) {
+      config = { ...SLOW_TICK_CONFIG };
+    } else {
+      const preset = SPEED_PRESETS[currentSpeedIndex]!;
+      config = {
+        ...DEFAULT_CONFIG,
+        speed: preset.speed,
+        tickMs: preset.tick,
+      };
+    }
     closePanel();
-    onStart(roster, config, { ...zombieCounts });
+    onStart(roster, config, { ...zombieCounts }, slowTickEnabled ? new Set(liveBotIds) : new Set());
   });
   footer.appendChild(startBtn);
   panel.appendChild(footer);
@@ -353,6 +422,15 @@ function stepperBtnStyle(): string {
     'all:unset;cursor:pointer;width:24px;height:24px;border-radius:4px;' +
     'background:rgba(255,255,255,0.1);color:#ddd;font-size:14px;' +
     'display:inline-flex;align-items:center;justify-content:center;'
+  );
+}
+
+function toggleBtnStyle(on: boolean): string {
+  return (
+    'all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.8rem;font-weight:bold;' +
+    (on
+      ? 'background:#2f6b4f;color:#fff;'
+      : 'background:rgba(255,255,255,0.08);color:#aaa;')
   );
 }
 
