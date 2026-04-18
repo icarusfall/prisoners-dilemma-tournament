@@ -37,6 +37,21 @@ interface BotRow {
   created_via: string;
   source_description: string | null;
   created_at: Date;
+  visibility: 'visible' | 'hidden';
+}
+
+// Strip the name, spec, and source description from hidden bots. The
+// id and created_at still go out so other players know a bot exists
+// and can reference it in a tournament, but not what it is or how it
+// plays.
+function publicView(row: BotRow): BotRow {
+  if (row.visibility !== 'hidden') return row;
+  return {
+    ...row,
+    name: 'Hidden bot',
+    spec: null as unknown as BotSpec,
+    source_description: null,
+  };
 }
 
 interface BotsRouteOptions {
@@ -100,7 +115,7 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
     let rows: BotRow[];
     if (created_via && author) {
       rows = await sql<BotRow[]>`
-        SELECT id, player_id, name, spec, created_via, source_description, created_at
+        SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
         FROM bots
         WHERE created_via = ${created_via}
           AND spec->>'author' = ${author}
@@ -108,27 +123,27 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
       `;
     } else if (created_via) {
       rows = await sql<BotRow[]>`
-        SELECT id, player_id, name, spec, created_via, source_description, created_at
+        SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
         FROM bots
         WHERE created_via = ${created_via}
         ORDER BY created_at DESC, id ASC
       `;
     } else if (author) {
       rows = await sql<BotRow[]>`
-        SELECT id, player_id, name, spec, created_via, source_description, created_at
+        SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
         FROM bots
         WHERE spec->>'author' = ${author}
         ORDER BY created_at DESC, id ASC
       `;
     } else {
       rows = await sql<BotRow[]>`
-        SELECT id, player_id, name, spec, created_via, source_description, created_at
+        SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
         FROM bots
         ORDER BY created_at DESC, id ASC
       `;
     }
 
-    return { bots: rows };
+    return { bots: rows.map(publicView) };
   });
 
   // ---------------------------------------------------------------
@@ -137,14 +152,14 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
   app.get<{ Params: { id: string } }>('/api/bots/:id', async (req, reply) => {
     const { id } = req.params;
     const rows = await sql<BotRow[]>`
-      SELECT id, player_id, name, spec, created_via, source_description, created_at
+      SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
       FROM bots
       WHERE id = ${id}
     `;
     if (rows.length === 0) {
       return reply.code(404).send({ error: 'not_found', message: `no bot with id ${id}` });
     }
-    return rows[0];
+    return publicView(rows[0]!);
   });
 
   // ---------------------------------------------------------------
@@ -157,9 +172,11 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
       spec?: unknown;
       source_description?: string;
       created_via?: string;
+      visibility?: string;
     };
   }>('/api/bots', async (req, reply) => {
     const body = req.body ?? {};
+    const visibility = body.visibility === 'hidden' ? 'hidden' : 'visible';
 
     // ---- Path A: clone a preset ----
     if (body.presetId !== undefined) {
@@ -179,17 +196,20 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
       const preset = getPreset(presetId);
       const id = generateBotId(presetId.toLowerCase());
       const name = body.name ?? preset.name;
+      // Presets are always visible — they're the reference set every
+      // player is expected to know about.
       const inserted = await sql<BotRow[]>`
-        INSERT INTO bots (id, player_id, name, spec, created_via, source_description)
+        INSERT INTO bots (id, player_id, name, spec, created_via, source_description, visibility)
         VALUES (
           ${id},
           ${null},
           ${name},
           ${sql.json(preset.spec as unknown as Parameters<typeof sql.json>[0])},
           ${'preset'},
-          ${preset.description}
+          ${preset.description},
+          ${'visible'}
         )
-        RETURNING id, player_id, name, spec, created_via, source_description, created_at
+        RETURNING id, player_id, name, spec, created_via, source_description, created_at, visibility
       `;
       return reply.code(201).send(inserted[0]);
     }
@@ -227,17 +247,20 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
 
     const id = generateBotId('bot');
     const inserted = await sql<BotRow[]>`
-      INSERT INTO bots (id, player_id, name, spec, created_via, source_description)
+      INSERT INTO bots (id, player_id, name, spec, created_via, source_description, visibility)
       VALUES (
         ${id},
         ${null},
         ${body.name.trim()},
         ${sql.json(result.spec as unknown as Parameters<typeof sql.json>[0])},
         ${createdVia},
-        ${body.source_description ?? null}
+        ${body.source_description ?? null},
+        ${visibility}
       )
-      RETURNING id, player_id, name, spec, created_via, source_description, created_at
+      RETURNING id, player_id, name, spec, created_via, source_description, created_at, visibility
     `;
+    // The author always gets the full record back on the creation
+    // response — it's their own bot, so there's nothing to hide.
     return reply.code(201).send(inserted[0]);
   });
 

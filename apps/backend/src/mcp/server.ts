@@ -49,6 +49,7 @@ interface BotRow {
   created_via: string;
   source_description: string | null;
   created_at: Date;
+  visibility: 'visible' | 'hidden';
 }
 
 interface TournamentRow {
@@ -135,8 +136,9 @@ export function createMcpServer(sql: Sql): McpServer {
     {
       spec: z.record(z.string(), z.unknown()).describe('The BotSpec JSON object'),
       player_token: z.string().optional().describe('Your player token for ownership attribution'),
+      hidden: z.boolean().optional().describe('If true, this bot\'s name and spec are hidden from other players on the MCP server and public API. Only its existence and id are visible. Defaults to false.'),
     },
-    async ({ spec, player_token }) => {
+    async ({ spec, player_token, hidden }) => {
       const validation = validateBotSpec(spec);
       if (!validation.valid) {
         return {
@@ -154,17 +156,19 @@ export function createMcpServer(sql: Sql): McpServer {
 
       const player = await resolvePlayer(player_token);
       const id = generateBotId('bot');
+      const visibility = hidden ? 'hidden' : 'visible';
       const inserted = await sql<BotRow[]>`
-        INSERT INTO bots (id, player_id, name, spec, created_via, source_description)
+        INSERT INTO bots (id, player_id, name, spec, created_via, source_description, visibility)
         VALUES (
           ${id},
           ${player?.id ?? null},
           ${validation.spec.name},
           ${sql.json(validation.spec as unknown as Parameters<typeof sql.json>[0])},
           ${'mcp'},
-          ${null}
+          ${null},
+          ${visibility}
         )
-        RETURNING id, player_id, name, spec, created_via, source_description, created_at
+        RETURNING id, player_id, name, spec, created_via, source_description, created_at, visibility
       `;
 
       return {
@@ -185,6 +189,7 @@ export function createMcpServer(sql: Sql): McpServer {
     },
     async ({ player_token }) => {
       let rows: BotRow[];
+      let callerPlayerId: string | null = null;
       if (player_token) {
         const player = await resolvePlayer(player_token);
         if (!player) {
@@ -193,22 +198,39 @@ export function createMcpServer(sql: Sql): McpServer {
             isError: true,
           };
         }
+        callerPlayerId = player.id;
         rows = await sql<BotRow[]>`
-          SELECT id, player_id, name, spec, created_via, source_description, created_at
+          SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
           FROM bots WHERE player_id = ${player.id}
           ORDER BY created_at DESC
         `;
       } else {
         rows = await sql<BotRow[]>`
-          SELECT id, player_id, name, spec, created_via, source_description, created_at
+          SELECT id, player_id, name, spec, created_via, source_description, created_at, visibility
           FROM bots ORDER BY created_at DESC
         `;
       }
 
+      // A hidden bot's name is stripped for everyone *except* its own
+      // author (resolved via player_token). Hiding it from the author
+      // themselves would be pointless — they submitted it — and would
+      // break list_my_bots as a usability tool.
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify({ bots: rows.map((r) => ({ id: r.id, name: r.name, created_via: r.created_via, created_at: r.created_at })) }),
+          text: JSON.stringify({
+            bots: rows.map((r) => {
+              const isOwner = callerPlayerId !== null && r.player_id === callerPlayerId;
+              const hidden = r.visibility === 'hidden' && !isOwner;
+              return {
+                id: r.id,
+                name: hidden ? 'Hidden bot' : r.name,
+                created_via: r.created_via,
+                created_at: r.created_at,
+                hidden,
+              };
+            }),
+          }),
         }],
       };
     },

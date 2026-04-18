@@ -101,6 +101,10 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
     captionBar.textContent = 'Failed to load bots from backend.';
     return { destroy() { root.innerHTML = ''; } };
   }
+  // Hidden bots don't participate in the arena spectacle — their spec
+  // isn't available to the frontend, and watching them play would
+  // expose their strategy anyway.
+  allBots = allBots.filter((b) => b.spec !== null);
 
   const demoBots = allBots.filter((b) => DEMO_BOT_IDS.includes(b.id));
   if (demoBots.length < 2) {
@@ -573,7 +577,9 @@ export async function mountArena(root: HTMLElement): Promise<ArenaHandle> {
       const idx = (idSeen.get(b.id) ?? 0) + 1;
       idSeen.set(b.id, idx);
       const displayName = total > 1 ? `${b.name} (${idx})` : b.name;
-      const bot = createArenaBot(b.id, displayName, b.spec, [...currentOffice.bounds], rng, buildingPolygons);
+      // Hidden bots (spec === null) were filtered out when the bot
+      // list was fetched, so every b.spec here is non-null.
+      const bot = createArenaBot(b.id, displayName, b.spec!, [...currentOffice.bounds], rng, buildingPolygons);
       if (liveBotIds.has(b.id)) bot.isLive = true;
       return bot;
     });

@@ -132,10 +132,12 @@ export interface BotRecord {
   id: string;
   player_id: string | null;
   name: string;
-  spec: BotSpec;
+  // `null` when the bot is hidden and the caller isn't the author.
+  spec: BotSpec | null;
   created_via: string;
   source_description: string | null;
   created_at: string;
+  visibility: 'visible' | 'hidden';
 }
 
 export interface ListBotsFilter {
@@ -164,6 +166,7 @@ export interface CreateBotFromSpecRequest {
   spec: BotSpec;
   source_description?: string;
   created_via?: 'nl' | 'mcp' | 'code';
+  visibility?: 'visible' | 'hidden';
 }
 
 export function createBotFromPreset(body: CreateBotFromPresetRequest): Promise<BotRecord> {

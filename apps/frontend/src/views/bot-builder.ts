@@ -68,9 +68,13 @@ export function mountBotBuilder(root: HTMLElement): void {
           <div style="margin-top:0.75rem;">
             <label for="bot-name" style="font-weight:600;font-size:0.9rem;">Bot name</label>
             <input id="bot-name" type="text" maxlength="80"
-                   style="display:block;width:100%;margin:0.25rem 0 0.75rem;padding:0.4rem;
+                   style="display:block;width:100%;margin:0.25rem 0 0.5rem;padding:0.4rem;
                           font-size:0.95rem;background:#1e1e2e;color:#ddd;
                           border:1px solid #444;border-radius:4px;box-sizing:border-box;">
+            <label style="display:flex;align-items:flex-start;gap:0.4rem;font-size:0.85rem;color:#555;margin:0 0 0.75rem;cursor:pointer;">
+              <input type="checkbox" id="describe-hidden" style="margin-top:0.2rem;">
+              <span>Keep this bot's logic and name hidden from other players. Others will only see that a bot exists, not what it does or what it's called.</span>
+            </label>
           </div>
 
           <div style="display:flex;align-items:center;gap:1rem;">
@@ -116,9 +120,13 @@ view.opponentInstanceId // string</pre>
         <div style="margin-top:0.25rem;">
           <label for="code-bot-name" style="font-weight:600;font-size:0.9rem;">Bot name</label>
           <input id="code-bot-name" type="text" maxlength="80"
-                 style="display:block;width:100%;margin:0.25rem 0 0.75rem;padding:0.4rem;
+                 style="display:block;width:100%;margin:0.25rem 0 0.5rem;padding:0.4rem;
                         font-size:0.95rem;background:#1e1e2e;color:#ddd;
                         border:1px solid #444;border-radius:4px;box-sizing:border-box;">
+          <label style="display:flex;align-items:flex-start;gap:0.4rem;font-size:0.85rem;color:#555;margin:0 0 0.75rem;cursor:pointer;">
+            <input type="checkbox" id="code-hidden" style="margin-top:0.2rem;">
+            <span>Keep this bot's logic and name hidden from other players. Others will only see that a bot exists, not what it does or what it's called.</span>
+          </label>
         </div>
 
         <div style="display:flex;align-items:center;gap:1rem;">
@@ -180,8 +188,11 @@ view.opponentInstanceId // string</pre>
   const saveStatus = root.querySelector<HTMLElement>('#save-status')!;
   const saveError = root.querySelector<HTMLElement>('#save-error')!;
 
+  const describeHidden = root.querySelector<HTMLInputElement>('#describe-hidden')!;
+
   const codeInput = root.querySelector<HTMLTextAreaElement>('#code-input')!;
   const codeBotName = root.querySelector<HTMLInputElement>('#code-bot-name')!;
+  const codeHidden = root.querySelector<HTMLInputElement>('#code-hidden')!;
   const btnTestCode = root.querySelector<HTMLButtonElement>('#btn-test-code')!;
   const btnSaveCode = root.querySelector<HTMLButtonElement>('#btn-save-code')!;
   const codeStatus = root.querySelector<HTMLElement>('#code-status')!;
@@ -299,6 +310,7 @@ view.opponentInstanceId // string</pre>
         spec,
         source_description: currentDescription || undefined,
         created_via: 'nl',
+        visibility: describeHidden.checked ? 'hidden' : 'visible',
       });
       showSavedStage(bot.name, bot.id);
     } catch (err) {
@@ -398,6 +410,7 @@ view.opponentInstanceId // string</pre>
         name,
         spec,
         created_via: 'code',
+        visibility: codeHidden.checked ? 'hidden' : 'visible',
       });
       showSavedStage(bot.name, bot.id);
     } catch (err) {
@@ -421,6 +434,8 @@ view.opponentInstanceId // string</pre>
   btnAnother.addEventListener('click', () => {
     nlInput.value = '';
     codeInput.value = '';
+    describeHidden.checked = false;
+    codeHidden.checked = false;
     compileError.textContent = '';
     codeError.textContent = '';
     codeTestOutput.style.display = 'none';
