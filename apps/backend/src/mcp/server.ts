@@ -80,7 +80,19 @@ function docsDir(): string {
 
 // ---- Create MCP server ----
 
-export function createMcpServer(sql: Sql): McpServer {
+export interface McpServerOptions {
+  /**
+   * Token the transport pulled off the per-request `x-pdt-token`
+   * header, if any. When a tool call omits `player_token`, this is
+   * used as the default — so a client that configured the header
+   * once in their MCP config never has to re-pass the token in every
+   * tool invocation.
+   */
+  headerToken?: string;
+}
+
+export function createMcpServer(sql: Sql, options: McpServerOptions = {}): McpServer {
+  const { headerToken } = options;
   const mcp = new McpServer(
     {
       name: 'Prisoner\'s Dilemma Tournament',
@@ -98,10 +110,14 @@ export function createMcpServer(sql: Sql): McpServer {
   // ==================================================================
   // Helper: resolve player from token
   // ==================================================================
+  // The explicit `player_token` tool argument wins so a power user
+  // can still act on behalf of a different identity, but by default
+  // we fall back to the header token baked in at connect time.
   async function resolvePlayer(token: string | undefined): Promise<{ id: string; display_name: string } | null> {
-    if (!token) return null;
+    const effective = token ?? headerToken;
+    if (!effective) return null;
     const rows = await sql<{ id: string; display_name: string }[]>`
-      SELECT id, display_name FROM players WHERE mcp_token = ${token}
+      SELECT id, display_name FROM players WHERE mcp_token = ${effective}
     `;
     return rows[0] ?? null;
   }
@@ -190,8 +206,11 @@ export function createMcpServer(sql: Sql): McpServer {
     async ({ player_token }) => {
       let rows: BotRow[];
       let callerPlayerId: string | null = null;
-      if (player_token) {
-        const player = await resolvePlayer(player_token);
+      // Effective token: explicit arg wins, else fall back to the
+      // `x-pdt-token` header baked in at connect time.
+      const effectiveToken = player_token ?? headerToken;
+      if (effectiveToken) {
+        const player = await resolvePlayer(effectiveToken);
         if (!player) {
           return {
             content: [{ type: 'text', text: JSON.stringify({ error: 'invalid_token', message: 'No player found for this token' }) }],
@@ -711,7 +730,7 @@ export function createMcpServer(sql: Sql): McpServer {
           type: 'text' as const,
           text: `I want to understand how my bots are performing. Please:
 
-1. Use list_my_bots${player_token ? ` with player_token "${player_token}"` : ''} to see my current bots.
+1. Use list_my_bots${player_token ? ` with player_token "${player_token}"` : ''} to see my current bots. (If the MCP client passes an x-pdt-token header, no argument is needed — the server will resolve it automatically.)
 
 2. Run a test tournament (run_tournament) with my bots against the classical presets to see how they fare.
 

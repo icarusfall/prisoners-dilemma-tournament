@@ -25,7 +25,20 @@ export const mcpHandler: FastifyPluginAsync<McpHandlerOptions> = async (
   opts: McpHandlerOptions,
 ) => {
   async function handle(req: FastifyRequest, reply: FastifyReply, body?: unknown): Promise<void> {
-    const mcpServer = createMcpServer(opts.sql);
+    // Pull `x-pdt-token` off the request so tools can attribute
+    // bots/actions to the caller without them having to pass
+    // `player_token` in every tool invocation. The header is how
+    // MCP clients (Claude Desktop, Claude Code) ship credentials
+    // configured in their `mcpServers` JSON.
+    const rawHeader = req.headers['x-pdt-token'];
+    const headerToken =
+      typeof rawHeader === 'string'
+        ? rawHeader
+        : Array.isArray(rawHeader)
+          ? rawHeader[0]
+          : undefined;
+
+    const mcpServer = createMcpServer(opts.sql, { headerToken });
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // stateless mode
     });
