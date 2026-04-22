@@ -147,6 +147,53 @@ export const botsRoutes: FastifyPluginAsync<BotsRouteOptions> = async (
   });
 
   // ---------------------------------------------------------------
+  // GET /api/bots/directory
+  //
+  // Curated listing for the frontend "Bot Directory" tab. Visible bots
+  // come back with their full spec; hidden bots are reduced to {id,
+  // name, created_at, submitter_name} — the name is the real one here
+  // (deliberately not passed through `publicView`), on the theory that
+  // knowing a bot's name without its spec is enough to recognise a
+  // submission without leaking strategy. Submitter comes from a LEFT
+  // JOIN on players so preset bots (player_id = NULL) still appear.
+  // Must be registered before `/api/bots/:id` so the static path
+  // wins the match.
+  // ---------------------------------------------------------------
+  app.get('/api/bots/directory', async () => {
+    const rows = await sql<Array<BotRow & { submitter_name: string | null }>>`
+      SELECT b.id, b.player_id, b.name, b.spec, b.created_via,
+             b.source_description, b.created_at, b.visibility,
+             p.display_name AS submitter_name
+      FROM bots b
+      LEFT JOIN players p ON b.player_id = p.id
+      ORDER BY b.visibility ASC, b.created_at DESC, b.id ASC
+    `;
+
+    const visible = rows
+      .filter((r) => r.visibility === 'visible')
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        spec: r.spec,
+        created_via: r.created_via,
+        source_description: r.source_description,
+        created_at: r.created_at,
+        submitter_name: r.submitter_name,
+      }));
+
+    const hidden = rows
+      .filter((r) => r.visibility === 'hidden')
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        created_at: r.created_at,
+        submitter_name: r.submitter_name,
+      }));
+
+    return { visible, hidden };
+  });
+
+  // ---------------------------------------------------------------
   // GET /api/bots/:id
   // ---------------------------------------------------------------
   app.get<{ Params: { id: string } }>('/api/bots/:id', async (req, reply) => {

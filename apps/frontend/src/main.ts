@@ -10,6 +10,7 @@ import { mountArena, type ArenaHandle } from './arena/arena-runner.js';
 import { mountTournamentRunner } from './views/tournament-runner.js';
 import { mountHowItWorks, type HowItWorksHandle } from './views/how-it-works.js';
 import { mountBotBuilder } from './views/bot-builder.js';
+import { mountBotDirectory } from './views/bot-directory.js';
 import { mountConnect } from './views/connect.js';
 
 const app = document.getElementById('app');
@@ -31,6 +32,7 @@ app.innerHTML = `
         <button id="tab-arena" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Arena</button>
         <button id="tab-tournament" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Tournament</button>
         <button id="tab-builder" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Create Bot</button>
+        <button id="tab-directory" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Bot Directory</button>
         <button id="tab-connect" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">Connect</button>
         <button id="tab-howit" style="all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;">How It Works</button>
       </div>
@@ -46,6 +48,7 @@ app.innerHTML = `
 const tabArena = document.getElementById('tab-arena') as HTMLButtonElement;
 const tabTournament = document.getElementById('tab-tournament') as HTMLButtonElement;
 const tabBuilder = document.getElementById('tab-builder') as HTMLButtonElement;
+const tabDirectory = document.getElementById('tab-directory') as HTMLButtonElement;
 const tabConnect = document.getElementById('tab-connect') as HTMLButtonElement;
 const tabHowIt = document.getElementById('tab-howit') as HTMLButtonElement;
 const viewEl = document.getElementById('view')!;
@@ -56,14 +59,14 @@ const ACTIVE_TAB_STYLE = 'background:#5a6abf;color:#fff;';
 const INACTIVE_TAB_STYLE = 'background:transparent;color:#666;';
 
 function setActiveTab(tab: View): void {
-  const tabs: Record<View, HTMLButtonElement> = { arena: tabArena, tournament: tabTournament, builder: tabBuilder, connect: tabConnect, howit: tabHowIt };
+  const tabs: Record<View, HTMLButtonElement> = { arena: tabArena, tournament: tabTournament, builder: tabBuilder, directory: tabDirectory, connect: tabConnect, howit: tabHowIt };
   for (const [key, btn] of Object.entries(tabs)) {
     btn.style.cssText = `all:unset;cursor:pointer;padding:4px 12px;border-radius:4px;font-size:0.85rem;${key === tab ? ACTIVE_TAB_STYLE : INACTIVE_TAB_STYLE}`;
   }
 }
 
 // ---- View management ----
-type View = 'arena' | 'tournament' | 'builder' | 'connect' | 'howit';
+type View = 'arena' | 'tournament' | 'builder' | 'directory' | 'connect' | 'howit';
 let currentView: View | null = null;
 let arenaHandle: ArenaHandle | null = null;
 let howItHandle: HowItWorksHandle | null = null;
@@ -105,6 +108,13 @@ async function switchView(target: View): Promise<void> {
     viewEl.appendChild(container);
     viewEl.style.overflowY = 'auto';
     mountBotBuilder(container);
+  } else if (target === 'directory') {
+    const container = document.createElement('div');
+    container.style.cssText =
+      'max-width:960px;margin:1.5rem auto;padding:0 1rem;overflow-y:auto;height:100%;color:#ddd;';
+    viewEl.appendChild(container);
+    viewEl.style.overflowY = 'auto';
+    await mountBotDirectory(container);
   } else if (target === 'connect') {
     const container = document.createElement('div');
     container.style.cssText =
@@ -124,6 +134,7 @@ async function switchView(target: View): Promise<void> {
 tabArena.addEventListener('click', () => void switchView('arena'));
 tabTournament.addEventListener('click', () => void switchView('tournament'));
 tabBuilder.addEventListener('click', () => void switchView('builder'));
+tabDirectory.addEventListener('click', () => void switchView('directory'));
 tabConnect.addEventListener('click', () => void switchView('connect'));
 tabHowIt.addEventListener('click', () => void switchView('howit'));
 

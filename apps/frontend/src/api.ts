@@ -182,6 +182,36 @@ export function deleteBot(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------
+// /api/bots/directory
+// ---------------------------------------------------------------------
+
+export interface DirectoryVisibleBot {
+  id: string;
+  name: string;
+  spec: BotSpec;
+  created_via: string;
+  source_description: string | null;
+  created_at: string;
+  submitter_name: string | null;
+}
+
+export interface DirectoryHiddenBot {
+  id: string;
+  name: string;
+  created_at: string;
+  submitter_name: string | null;
+}
+
+export interface BotDirectoryResponse {
+  visible: DirectoryVisibleBot[];
+  hidden: DirectoryHiddenBot[];
+}
+
+export function getBotDirectory(): Promise<BotDirectoryResponse> {
+  return request<BotDirectoryResponse>('/api/bots/directory');
+}
+
+// ---------------------------------------------------------------------
 // /api/compile-bot
 // ---------------------------------------------------------------------
 
